@@ -49,7 +49,8 @@ if not os.path.exists(output_dir):
     print "<register> Output directory", output_dir, "does not exist, creating it."
     os.makedirs(output_dir)
 
-subject_list = os.listdir(args.inputDirectory)
+#subject_list = os.listdir(args.inputDirectory)
+subject_list = glob.glob(args.inputDirectory+"R*")
 print "<wm_quality_control_after_clustering> found", len(subject_list), "subjects."
 
 # Check if all subjects have the same number of clusters.

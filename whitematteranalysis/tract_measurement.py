@@ -59,6 +59,11 @@ class TractMeasurement:
         self.case_id = os.path.splitext(os.path.split(self.measurement_file)[1])[0]
         self.cluster_path = tmp_matrix[1:, 0]
         self.measurement_header = tmp_matrix[0, 1:]
+        for i_idx in range(tmp_matrix.shape[0]):
+            for j_idx in range(tmp_matrix.shape[1]):
+                if tmp_matrix[i_idx, j_idx] == '':
+                    tmp_matrix[i_idx, j_idx] = 'NAN'
+
         self.measurement_matrix = tmp_matrix[1:, 1:].astype(numpy.float)
         self.cluster_number = self.measurement_matrix.shape[0]
 

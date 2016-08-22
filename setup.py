@@ -37,7 +37,9 @@ setup(
         'bin/wm_quality_control_after_clustering.py',
         'bin/wm_harden_transform.py',
         'bin/wm_append_cluster.py',
-        'bin/wm_remove_data_along_tracts.py'
+        'bin/wm_remove_data_along_tracts.py',
+        'bin/label_statistics_with_slicer.py',
+        'bin/wm_label_statistics_of_volume.py'
     ],
     include_dirs=[numpy.get_include()]
 )

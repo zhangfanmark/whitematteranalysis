@@ -493,7 +493,29 @@ def spectral(input_polydata, number_of_clusters=200,
     cluster_metric = None
     if centroid_finder == 'K-means':
         print '<cluster.py> K-means clustering in embedding space.'
-        centroids, cluster_metric = scipy.cluster.vq.kmeans2(embed, number_of_clusters, minit='points')
+
+        #TODO: Replace the following kmeans2 using sklearn.cluster.AgglomerativeClustering, we can obtain labels of each fiber.
+        #TODO: Then, we use 'new_code, has_members = _vq.update_cluster_means(data, label, nc)' in scipy to get the centroids.
+        #TODO: https://github.com/scipy/scipy/blob/master/scipy/cluster/vq.py#L795
+
+        from time import time
+        from sklearn.cluster import AgglomerativeClustering
+        import scipy.cluster._vq
+
+        if 0:
+            t0 = time()
+            import scipy.cluster.vq
+            centroids, cluster_metric = scipy.cluster.vq.kmeans2(embed, number_of_clusters, minit='points')
+            print("%s : %.2fs" % ('KmeansClustering', time() - t0))
+        else:
+            t0 = time()
+            clustering = AgglomerativeClustering(linkage='ward', n_clusters=number_of_clusters)
+            clustering.fit(embed)
+            print("%s : %.2fs" % ('AgglomerativeClustering', time() - t0))
+
+            cluster_metric = clustering.labels_
+            centroids, has_members = scipy.cluster._vq.update_cluster_means(embed, cluster_metric, number_of_clusters)
+
         # sort centroids by first eigenvector order
         # centroid_order = numpy.argsort(centroids[:,0])
         # sort centroids according to colormap and save them in this order in atlas
@@ -984,10 +1006,10 @@ def output_and_quality_control_cluster_atlas(atlas, output_polydata_s, subject_f
     if HAVE_PLT:
         print "<cluster.py> Saving subjects per cluster histogram."
         fig, ax = plt.subplots()
-        counts = numpy.zeros(num_of_subjects+1)
+        counts = numpy.zeros(number_of_subjects+1)
         counts[:numpy.max(subjects_per_cluster)+1] = numpy.bincount(subjects_per_cluster)
-        ax.bar(range(num_of_subjects + 1), counts, width=1, align='center')
-        ax.set(xlim=[-1, num_of_subjects + 1])
+        ax.bar(range(number_of_subjects + 1), counts, width=1, align='center')
+        ax.set(xlim=[-1, number_of_subjects + 1])
         plt.title('Histogram of Subjects per Cluster')
         plt.xlabel('subjects per cluster')
         plt.ylabel('number of clusters')

@@ -32,11 +32,11 @@ parser.add_argument(
     'input',
     help='Directory or path of input VTK/VTP file(s) that are going to be painted.')
 parser.add_argument(
+    'label_map_file',
+    help='Label map file in nifti (default for freesurfer result).')
+parser.add_argument(
     'outputDirectory',
     help='Directory of output transformed results.')
-parser.add_argument(
-    '-lm', dest="label_map_file",
-    help='Label map file in nifti (default for freesurfer result).')
 parser.add_argument(
     '-j', action="store", dest="numberOfJobs", type=int,
     help='Number of processors to use.')

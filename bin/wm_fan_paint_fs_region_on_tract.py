@@ -80,7 +80,7 @@ lb = nibabel.load(args.label_map_file)
 voxel_data = lb.get_data()
 print args.label_map_file, ', label volume shape: ', lb.get_data().shape
 
-number_of_endpoints = 4
+number_of_endpoints = 5
 
 for pd_tract_path in pd_tract_list:
     pd_tract = wma.io.read_polydata(pd_tract_path)
@@ -117,15 +117,16 @@ for pd_tract_path in pd_tract_list:
 
         # if endpoint touches 0 region
         if line_labels[0] < 1:
-            line_labels[0] = line_labels[1]
-            if line_labels[0] < 1:
-                line_labels[0] = line_labels[2]
-                line_labels[1] = line_labels[2]
+            for t_idx in range(0,number_of_endpoints):
+                if line_labels[t_idx] > 0:
+                    line_labels[0:t_idx] = line_labels[t_idx]
+                    break
+
         if line_labels[-1] < 1:
-            line_labels[-1] = line_labels[-2]
-            if line_labels[-1] < 1:
-                line_labels[-1] = line_labels[-3]
-                line_labels[-2] = line_labels[-3]
+            for t_idx in range(0,number_of_endpoints):
+                if line_labels[-t_idx-1] > 0:
+                    line_labels[-t_idx:] = line_labels[-t_idx-1]
+                    break
 
         if line_labels[0] < 1 or line_labels[-1] < 1:
             mask_touch_0_fibers[lidx] = 1
@@ -137,19 +138,26 @@ for pd_tract_path in pd_tract_list:
 
         step = 1000
         if lidx % step == 0:
-            print 'Fiber %8d / %d, length, %4d, endpoint1: %5d, endpoint2: %5d' % (lidx, num_points, line_length, line_labels[0], line_labels[-1])
+            print 'Fiber %8d / %d, length, %4d, endpoint1: %5d, endpoint2: %5d' % (lidx, num_fibers, line_length, line_labels[0], line_labels[-1])
             if flag_single:
                 t_end = time.time()
-                print ' - time elapsed:', t_end - t_start, ', estimated total time:', num_points / step * (t_end - t_start)
+                print '   - time elapsed:', t_end - t_start, ', estimated total time:', num_fibers / step * (t_end - t_start)
                 t_start = t_end
 
     label_array = vtk.vtkIntArray()
     label_array.SetName('region_label')
+    label_mask = vtk.vtkIntArray()
+    label_mask.SetName('region_mask')
     for val in label_list:
         label_array.InsertNextValue(val)
+        if val > 0:
+            label_mask.InsertNextValue(1)
+        else:
+            label_mask.InsertNextValue(0)
 
     inpointsdata = pd_tract.GetPointData()
     inpointsdata.AddArray(label_array)
+    inpointsdata.AddArray(label_mask)
     inpointsdata.Update()
     pd_tract.Update()
 

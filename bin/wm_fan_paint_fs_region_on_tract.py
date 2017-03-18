@@ -103,6 +103,8 @@ for pd_tract_path in pd_tract_list:
         pd_tract.GetLines().GetNextCell(line_ptids)
         line_length = line_ptids.GetNumberOfIds()
 
+        number_of_endpoints = line_length
+
         ptidx_list = numpy.zeros(line_length)
         line_labels = numpy.zeros(line_length)
         for pidx in range(0, line_length):

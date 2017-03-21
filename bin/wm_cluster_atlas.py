@@ -99,6 +99,11 @@ parser.add_argument(
 parser.add_argument(
     '-advanced_only_outlier_sigma', action='store', dest="outlierSigma", type=float, default=20.0,
     help='(Advanced parameter that probably should not be changed.) Local sigma used to compute fiber probability in cluster-based outlier removal. The default is 20mm. For stricter clustering, this may be reduced to 15mm.')
+
+parser.add_argument(
+    '-cf', action='store', dest="centroid_finder", type=str,
+    help='')
+
 args = parser.parse_args()
 
 if not os.path.isdir(args.inputDirectory):
@@ -340,17 +345,18 @@ for fname in input_polydatas:
     pd = wma.io.read_polydata(fname)
     # preprocessing step: minimum length
     #print "<wm_cluster_atlas.py> Preprocessing by length:", fiber_length, "mm."
-    pd2 = wma.filter.preprocess(pd, fiber_length,verbose=verbose)
+    pd2 = wma.filter.preprocess(pd, fiber_length,preserve_point_data=True,preserve_cell_data=True,verbose=verbose)
     # preprocessing step: fibers to analyze
     if number_of_fibers_per_subject is not None:
         print "<wm_cluster_atlas.py> Downsampling to", number_of_fibers_per_subject, "fibers from",  pd2.GetNumberOfLines(),"fibers over length", fiber_length, "."
-        pd3 = wma.filter.downsample(pd2, number_of_fibers_per_subject, verbose=verbose, random_seed=random_seed)
+        pd3 = wma.filter.downsample(pd2, number_of_fibers_per_subject, preserve_point_data=True, preserve_cell_data=True, verbose=verbose, random_seed=random_seed)
         if pd3.GetNumberOfLines() != number_of_fibers_per_subject:
             print "<wm_cluster_atlas.py> Fibers found:", pd3.GetNumberOfLines(), "Fibers requested:", number_of_fibers_per_subject
             print "\n<wm_cluster_atlas.py> ERROR: too few fibers over length threshold in subject:", fname
             exit()
     else:
         pd3 = pd2
+
     input_pds.append(pd3)
     del pd
     del pd2
@@ -367,6 +373,9 @@ for pd in input_pds:
 appender.Update()
 input_data = appender.GetOutput()
 del input_pds
+
+wma.io.write_polydata(input_data, os.path.join(outdir, 'whole_atlas_tract.vtp'))
+
 
 # figure out which subject each fiber was from in the input to the clustering
 subject_fiber_list = list()
@@ -422,7 +431,8 @@ for iteration in range(cluster_iterations):
                                  normalized_cuts=use_normalized_cuts, threshold=threshold, \
                                  outlier_std_threshold=outlier_std_threshold, \
                                  pos_def_approx=pos_def_approx, \
-                                 bilateral=bilateral)
+                                 bilateral=bilateral,
+                                 centroid_finder=args.centroid_finder)
 
     # If any fibers were rejected, delete the corresponding entry in this list
     subject_fiber_list = numpy.delete(subject_fiber_list, reject_idx)

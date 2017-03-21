@@ -12,6 +12,10 @@ import colorsys
 try:
     import scipy.cluster.vq
     import scipy.cluster.hierarchy
+
+    from sklearn.cluster import AgglomerativeClustering
+    import scipy.cluster._vq
+
     USE_SCIPY = 1
 except ImportError:
     USE_SCIPY = 0
@@ -46,7 +50,7 @@ except:
     
 # This did not work better. Leave here for future testing if of interest
 if 0:
-    try:    
+    try:
         from sklearn.cluster import AffinityPropagation
         from sklearn import metrics
     except ImportError:
@@ -182,7 +186,8 @@ def spectral(input_polydata, number_of_clusters=200,
              landmarks=None, distance_method='Mean', normalized_cuts=True,
              outlier_std_threshold = 2.0,
              pos_def_approx=True,
-             bilateral=False):
+             bilateral=False,
+             centroid_finder='K-means'):
 
     """ Spectral clustering based on pairwise fiber affinity matrix.
 
@@ -484,10 +489,14 @@ def spectral(input_polydata, number_of_clusters=200,
         # information is first
         embed = embed[:, ::-1]
 
+    tmp = embed
+    print '  -- embed: range', numpy.min(tmp), 'to', numpy.max(tmp), \
+        ', shape:', tmp.shape, ', NaN #:', (numpy.isnan(tmp)).sum(), '/', tmp.shape[0] * tmp.shape[1]
 
     # Default is always k-means. Other code is just left for testing. Did not improve results.
     #centroid_finder = 'AffinityPropagation'
-    centroid_finder = 'K-means'
+    #centroid_finder = 'K-means'
+    #centroid_finder = "AgglomerativeClustering"
     
     # 5) Find clusters using k-means in embedding space.
     cluster_metric = None
@@ -506,7 +515,21 @@ def spectral(input_polydata, number_of_clusters=200,
             # This is extremely slow, but leave code here if ever wanted for testing
             cluster_metric = metrics.silhouette_score(embed, cluster_idx, metric='sqeuclidean')
             print("Silhouette Coefficient: %0.3f" % cluster_metric)
- 
+    elif centroid_finder == 'AgglomerativeClustering':
+        print '<cluster.py> AgglomerativeClustering clustering in embedding space.'
+        clustering = AgglomerativeClustering(linkage='ward', n_clusters=number_of_clusters)
+        clustering.fit(embed)
+        cluster_metric = clustering.labels_
+        centroids, has_members = scipy.cluster._vq.update_cluster_means(embed, cluster_metric, number_of_clusters)
+        color = _embed_to_rgb(centroids)
+        centroid_order = render.argsort_by_jet_lookup_table(color)
+        atlas.centroids = centroids[centroid_order, :]
+        cluster_idx, dist = scipy.cluster.vq.vq(embed, atlas.centroids)
+        # print "<cluster.py> Distortion metric:", cluster_metric
+        if 0:
+            # This is extremely slow, but leave code here if ever wanted for testing
+            cluster_metric = metrics.silhouette_score(embed, cluster_idx, metric='sqeuclidean')
+            print("Silhouette Coefficient: %0.3f" % cluster_metric)
     else:
         print "ERROR: Unknown centroid finder", centroid_finder
         ## # This found fewer clusters than we need to represent the anatomy well

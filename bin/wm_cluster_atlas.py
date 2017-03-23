@@ -114,7 +114,7 @@ outdir = args.outputDirectory
 if not os.path.exists(outdir):
     print "<wm_cluster_atlas.py> Output directory", outdir, "does not exist, creating it."
     os.makedirs(outdir)
-    
+
 print "\n=========================="
 print "<wm_cluster_atlas.py> Clustering parameters"
 print "input directory:\n", args.inputDirectory
@@ -244,7 +244,7 @@ if args.flag_pos_def_off:
     print "Positive definite approximation for A is OFF (testing only)."
 else:
     print "Positive definite approximation for A is ON (default)."
-    
+
 pos_def_approx = ~args.flag_pos_def_off
 
 # default clustering parameters that probably don't need to be changed
@@ -376,6 +376,124 @@ del input_pds
 
 wma.io.write_polydata(input_data, os.path.join(outdir, 'whole_atlas_tract.vtp'))
 
+num_fibers = input_data.GetNumberOfLines()
+print 'Total fiber number in the atlas:', num_fibers
+
+input_data.GetLines().InitTraversal()
+line_ptids = vtk.vtkIdList()
+inpoints = input_data.GetPoints()
+inpointsdata = input_data.GetPointData()
+num_points = inpoints.GetNumberOfPoints()
+
+if inpointsdata.GetNumberOfArrays() > 0:
+    point_data_array_indices = range(inpointsdata.GetNumberOfArrays())
+    for idx in point_data_array_indices:
+        array = inpointsdata.GetArray(idx)
+        if array.GetName().lower() == 'region_label':
+            label_array = array
+
+endpoint_regions = numpy.zeros([num_fibers, 2])
+for lidx in range(0, num_fibers):
+    input_data.GetLines().GetNextCell(line_ptids)
+    line_length = line_ptids.GetNumberOfIds()
+
+    ptidx_1 = line_ptids.GetId(0)
+    ptidx_2 = line_ptids.GetId(line_length-1)
+    label_1 = int(label_array.GetTuple(ptidx_1)[0])
+    label_2 = int(label_array.GetTuple(ptidx_2)[0])
+
+    if label_1 >= 3000 and label_1 <= 4035:
+        label_1 = label_1 - 2000
+
+    if label_2 >= 3000 and label_2 <= 4035:
+        label_2 = label_2 - 2000
+
+    if label_1 <= label_2:
+        endpoint_regions[lidx, 0] = label_1
+        endpoint_regions[lidx, 1] = label_2
+    else:
+        endpoint_regions[lidx, 0] = label_2
+        endpoint_regions[lidx, 1] = label_1
+
+region_label_list = numpy.sort(numpy.unique(endpoint_regions))
+
+import scipy
+connectivity = numpy.zeros([num_fibers, num_fibers])
+
+print connectivity
+
+tot_num_fb = 0
+for r_idx in region_label_list:
+    region_mask = numpy.zeros([num_fibers, 1])
+    region_mask[numpy.where(endpoint_regions[:, 0] == r_idx)] = 1
+    region_mask[numpy.where(endpoint_regions[:, 1] == r_idx)] = 1
+
+    for rr in numpy.where(region_mask==1)[0]:
+        connectivity[rr, numpy.where(region_mask==1)[0]] = 1
+    num_fb = len(numpy.where(region_mask==1)[0])
+    print 'Region', r_idx, ',number of fibers:', num_fb
+    tot_num_fb = tot_num_fb + num_fb
+    pd_r_idx = wma.filter.mask(input_data, region_mask, color=None, preserve_point_data=True, preserve_cell_data=True, verbose=False)
+    wma.io.write_polydata(pd_r_idx, os.path.join(outdir, 'fiber_'+str(r_idx)+'.vtp'))
+print tot_num_fb
+connectivity = scipy.sparse.csr_matrix(connectivity)
+
+exit()
+
+# #######
+# fibers have the two same endpoint regions
+# ####
+#
+# dtype = [('ep_1', int), ('ep_2', int)]
+# region_label_list = [];
+# endpoint_regions = []
+# for lidx in range(0, num_fibers):
+#     input_data.GetLines().GetNextCell(line_ptids)
+#     line_length = line_ptids.GetNumberOfIds()
+#
+#     ptidx_1 = line_ptids.GetId(0)
+#     ptidx_2 = line_ptids.GetId(line_length-1)
+#     label_1 = int(label_array.GetTuple(ptidx_1)[0])
+#     label_2 = int(label_array.GetTuple(ptidx_2)[0])
+#
+#     if label_1 >= 3000 and label_1 <= 4035:
+#         label_1 = label_1 - 2000
+#
+#     if label_2 >= 3000 and label_2 <= 4035:
+#         label_2 = label_2 - 2000
+#
+#     if label_1 <= label_2:
+#         print label_1, label_2
+#         endpoint_regions.append((label_1, label_2))
+#     else:
+#         print label_2, label_1
+#         endpoint_regions.append((label_2, label_1))
+#
+# endpoint_regions = numpy.array(endpoint_regions, dtype=dtype)
+# sort_indices = numpy.argsort(endpoint_regions, order=['ep_1','ep_2'])
+#
+# ep_group_label = numpy.zeros([num_fibers, 1])
+# eps_previous = (-1, -1)
+# label_count = 0
+# for si in sort_indices:
+#     eps_ii = endpoint_regions[si]
+#     if eps_ii[0] != eps_previous[0] or eps_ii[1] != eps_previous[1] :
+#         label_count = label_count + 1
+#         ep_group_label[si] = label_count
+#     else:
+#         ep_group_label[si] = label_count
+#     eps_previous = eps_ii
+#
+# for si in sort_indices:
+#     eps = endpoint_regions[si]
+#     ep_g_label = ep_group_label[si]
+#     print  si, eps, ep_g_label
+#
+# for ui in numpy.unique(ep_group_label):
+#     ui_mask = numpy.zeros([num_fibers, 1])
+#     ui_mask[numpy.where(ep_group_label==ui)] = 1
+#     pd_ui = wma.filter.mask(input_data, ui_mask, color=None, preserve_point_data=True, preserve_cell_data=True, verbose=False)
+#     wma.io.write_polydata(pd_ui, os.path.join(outdir, 'fiber_'+str(ui)+'.vtp'))
 
 # figure out which subject each fiber was from in the input to the clustering
 subject_fiber_list = list()
@@ -432,7 +550,8 @@ for iteration in range(cluster_iterations):
                                  outlier_std_threshold=outlier_std_threshold, \
                                  pos_def_approx=pos_def_approx, \
                                  bilateral=bilateral,
-                                 centroid_finder=args.centroid_finder)
+                                 centroid_finder=args.centroid_finder,
+                                 connectivity=connectivity)
 
     # If any fibers were rejected, delete the corresponding entry in this list
     subject_fiber_list = numpy.delete(subject_fiber_list, reject_idx)
@@ -444,7 +563,7 @@ for iteration in range(cluster_iterations):
     # Finally, save some quality control metrics and save the atlas clusters as individual polydatas. This is used to 
     # set up a mrml hierarchy file and to visualize the output in Slicer. This data is not used to label
     # a new subject.
-    
+
     outdir1 = os.path.join(outdir_current, 'initial_clusters')
     if not os.path.exists(outdir1):
         print "<wm_cluster_atlas.py> Output directory", outdir1, "does not exist, creating it."
@@ -452,17 +571,17 @@ for iteration in range(cluster_iterations):
     print '<wm_cluster_atlas.py> Saving output files in directory:', outdir1
     wma.cluster.output_and_quality_control_cluster_atlas(atlas, output_polydata_s, subject_fiber_list, input_polydatas, number_of_subjects, outdir1, cluster_numbers_s, color, embed, number_of_fibers_to_display, testing=testing, verbose=False, render_images=render)
 
-    # Remove outliers from this iteration and save atlas again                                                 
+    # Remove outliers from this iteration and save atlas again
     print "Starting local cluster outlier removal"
 
     # outlier cluster index is going to be minus the cluster index, minus 1 to avoid issues with 0
     # Negative cluster indices are skipped in the save function wma.cluster.output_and_quality_control_cluster_atlas
 
-    reject_idx = list() 
+    reject_idx = list()
     cluster_indices = range(atlas.centroids.shape[0])
     fiber_mean_sim = numpy.zeros(cluster_numbers_s.shape)
     fiber_hemisphere = numpy.zeros(cluster_numbers_s.shape)
-    
+
     plt.figure(0)
     plt.title('Histogram of per-cluster fiber distances')
     plt.xlabel('distance in mm')
@@ -538,7 +657,7 @@ for iteration in range(cluster_iterations):
                 tmp = numpy.sum(cluster_similarity[fidx, mask2]) / numpy.sum(mask2)
                 print "LOO:", total_similarity[-1], "all:", total_similarity_OLD[fidx], "subj:", tmp, "f:", number_fibers_in_cluster, "LOO f:", number_fibers_in_LOO_cluster, "subj f:", numpy.sum(mask2)
         total_similarity = numpy.array(total_similarity)
-        
+
         if verbose:
             print "cluster", c, "tsim:", numpy.min(total_similarity), numpy.mean(total_similarity), numpy.max(total_similarity), "num fibers:", numpy.sum(mask), "num subjects:", subjects_per_cluster
 
@@ -550,7 +669,7 @@ for iteration in range(cluster_iterations):
 
         cutoff = mean_sim - cluster_outlier_std_threshold*cluster_std
         for (fidx, sim) in zip(fiber_indices, total_similarity):
-            fiber_mean_sim[fidx] = sim 
+            fiber_mean_sim[fidx] = sim
             if sim < cutoff:
                 #print fidx, cluster_numbers_s[fidx], dists[count]
                 cluster_numbers_s[fidx] = -c -1

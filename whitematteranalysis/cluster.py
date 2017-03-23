@@ -187,7 +187,8 @@ def spectral(input_polydata, number_of_clusters=200,
              outlier_std_threshold = 2.0,
              pos_def_approx=True,
              bilateral=False,
-             centroid_finder='K-means'):
+             centroid_finder='K-means',
+             connectivity=None):
 
     """ Spectral clustering based on pairwise fiber affinity matrix.
 
@@ -517,7 +518,7 @@ def spectral(input_polydata, number_of_clusters=200,
             print("Silhouette Coefficient: %0.3f" % cluster_metric)
     elif centroid_finder == 'AgglomerativeClustering':
         print '<cluster.py> AgglomerativeClustering clustering in embedding space.'
-        clustering = AgglomerativeClustering(linkage='ward', n_clusters=number_of_clusters)
+        clustering = AgglomerativeClustering(linkage='ward', n_clusters=number_of_clusters, connectivity=connectivity)
         clustering.fit(embed)
         cluster_metric = clustering.labels_
         centroids, has_members = scipy.cluster._vq.update_cluster_means(embed, cluster_metric, number_of_clusters)

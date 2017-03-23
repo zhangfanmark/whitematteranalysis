@@ -150,7 +150,7 @@ for (fname, descrip) in zip(html_view_fnames, html_views_descrip):
 
 fibers_qc_file = open(fibers_qc_fname, 'w')
 fiber_test_lengths = [0, 1, 2, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180, 190, 200]
-outstr = "SUBJECT_ID\tFIBER_STEP_SIZE\tTOTAL_POINTS\tTOTAL_FIBERS\t"
+outstr = "SUBJECT_ID\tFIBER_STEP_SIZE\tMEAN_FIBER_NUMBER\tSTD_FIBER_NUMBER\tMEDIAN_FIBER_NUMBER\tTOTAL_POINTS\tTOTAL_FIBERS\t"
 for test_length in fiber_test_lengths[1:]:
     outstr = outstr + "LEN_" + str(test_length) + '\t'
 outstr = outstr + '\n'
@@ -240,16 +240,26 @@ for fname in input_polydatas:
     # Compute and save stats about this subject's fiber histogram
     # numbers of fibers at different possible threshold lengths
     pd2, lengths, step_size = wma.filter.preprocess(pd, 20, return_lengths=True, verbose=False)
+
     lengths = numpy.array(lengths)
     fibers_qc_file = open(fibers_qc_fname, 'a')
     outstr = str(subject_id) +  '\t'
     outstr = outstr + '{0:.4f}'.format(step_size) + '\t'
+
+    mean_lengths = numpy.mean(lengths)
+    std_lengths = numpy.std(lengths)
+    median_lengths = numpy.median(lengths)
+
+    outstr = outstr + '\t' + str(mean_lengths)
+    outstr = outstr + '\t' + str(std_lengths)
+    outstr = outstr + '\t' + str(median_lengths)
     # total points in the dataset
     outstr = outstr + str(pd.GetNumberOfPoints()) + '\t'
     # total numbers of fibers
     for test_length in fiber_test_lengths:
         number_fibers = numpy.count_nonzero(lengths > test_length)
         outstr = outstr + str(number_fibers) + '\t'
+
     outstr = outstr + '\n'
     fibers_qc_file.write(outstr)
     fibers_qc_file.close()

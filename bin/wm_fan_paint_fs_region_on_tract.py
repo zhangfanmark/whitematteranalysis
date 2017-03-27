@@ -47,7 +47,6 @@ if not os.path.exists(args.input):
     print "Error: Input directory", args.input, "does not exist."
     exit()
 
-
 pd_tract_list = []
 if os.path.isfile(args.input):
     flag_single = True
@@ -84,6 +83,12 @@ number_of_endpoints = 5
 
 for pd_tract_path in pd_tract_list:
     pd_tract = wma.io.read_polydata(pd_tract_path)
+
+    # pd_name = os.path.split(pd_tract_path)[1]
+    # if pd_name.find('ukftrack') > 0:
+    #     pd_name = pd_name[0:6]
+    # elif pd_name.find('cluster') > 0:
+    #     pd_name = pd_name[7:12]
 
     num_fibers = pd_tract.GetNumberOfLines()
     print pd_tract_path, ', fiber number:', num_fibers
@@ -143,15 +148,18 @@ for pd_tract_path in pd_tract_list:
             print 'Fiber %8d / %d, length, %4d, endpoint1: %5d, endpoint2: %5d' % (lidx, num_fibers, line_length, line_labels[0], line_labels[-1])
             if flag_single:
                 t_end = time.time()
-                print '   - time elapsed:', t_end - t_start, ', estimated total time:', num_fibers / step * (t_end - t_start)
+                print '   - time elapsed:', t_end - t_start, ', estimated total time:', num_fibers / step * (t_end - t_start) / 60
                 t_start = t_end
 
     label_array = vtk.vtkIntArray()
     label_array.SetName('region_label')
     label_mask = vtk.vtkIntArray()
     label_mask.SetName('region_mask')
+    # pd_name_array = vtk.vtkIntArray()
+    # pd_name_array.SetName('ID_' + pd_name)
     for val in label_list:
         label_array.InsertNextValue(val)
+        # pd_name_array.InsertNextValue(0)
         if val > 0:
             label_mask.InsertNextValue(1)
         else:
@@ -160,6 +168,7 @@ for pd_tract_path in pd_tract_list:
     inpointsdata = pd_tract.GetPointData()
     inpointsdata.AddArray(label_array)
     inpointsdata.AddArray(label_mask)
+    # inpointsdata.AddArray(pd_name_array)
     inpointsdata.Update()
     pd_tract.Update()
 
@@ -169,4 +178,7 @@ for pd_tract_path in pd_tract_list:
 
     pd_tract_not_touch = wma.filter.mask(pd_tract, mask_touch_0_fibers, color=None, preserve_point_data=True, preserve_cell_data=True, verbose=True)
     vtk_name = pd_tract_path[:-4] + '_with_region_not_touch' + pd_tract_path[-4:]
-    wma.io.write_polydata(pd_tract_not_touch, os.path.join(args.outputDirectory, vtk_name))
+    dir_not_touch = os.path.join(args.outputDirectory, 'no_touch')
+    if not os.path.exists(dir_not_touch):
+        os.mkdir(dir_not_touch)
+    wma.io.write_polydata(pd_tract_not_touch, os.path.join(dir_not_touch, vtk_name))

@@ -14,6 +14,8 @@ except:
 
 import matplotlib.pyplot as plt
 
+import connectivity_constraints
+
 #-----------------
 # Parse arguments
 #-----------------
@@ -376,124 +378,13 @@ del input_pds
 
 wma.io.write_polydata(input_data, os.path.join(outdir, 'whole_atlas_tract.vtp'))
 
-num_fibers = input_data.GetNumberOfLines()
-print 'Total fiber number in the atlas:', num_fibers
+connectivity_folder = os.path.join(outdir, 'connectivity')
+if os.path.exists(connectivity_folder):
+    import shutil
+    shutil.rmtree(connectivity_folder)
+os.mkdir(connectivity_folder)
 
-input_data.GetLines().InitTraversal()
-line_ptids = vtk.vtkIdList()
-inpoints = input_data.GetPoints()
-inpointsdata = input_data.GetPointData()
-num_points = inpoints.GetNumberOfPoints()
-
-if inpointsdata.GetNumberOfArrays() > 0:
-    point_data_array_indices = range(inpointsdata.GetNumberOfArrays())
-    for idx in point_data_array_indices:
-        array = inpointsdata.GetArray(idx)
-        if array.GetName().lower() == 'region_label':
-            label_array = array
-
-endpoint_regions = numpy.zeros([num_fibers, 2])
-for lidx in range(0, num_fibers):
-    input_data.GetLines().GetNextCell(line_ptids)
-    line_length = line_ptids.GetNumberOfIds()
-
-    ptidx_1 = line_ptids.GetId(0)
-    ptidx_2 = line_ptids.GetId(line_length-1)
-    label_1 = int(label_array.GetTuple(ptidx_1)[0])
-    label_2 = int(label_array.GetTuple(ptidx_2)[0])
-
-    if label_1 >= 3000 and label_1 <= 4035:
-        label_1 = label_1 - 2000
-
-    if label_2 >= 3000 and label_2 <= 4035:
-        label_2 = label_2 - 2000
-
-    if label_1 <= label_2:
-        endpoint_regions[lidx, 0] = label_1
-        endpoint_regions[lidx, 1] = label_2
-    else:
-        endpoint_regions[lidx, 0] = label_2
-        endpoint_regions[lidx, 1] = label_1
-
-region_label_list = numpy.sort(numpy.unique(endpoint_regions))
-
-import scipy
-connectivity = numpy.zeros([num_fibers, num_fibers])
-
-print connectivity
-
-tot_num_fb = 0
-for r_idx in region_label_list:
-    region_mask = numpy.zeros([num_fibers, 1])
-    region_mask[numpy.where(endpoint_regions[:, 0] == r_idx)] = 1
-    region_mask[numpy.where(endpoint_regions[:, 1] == r_idx)] = 1
-
-    for rr in numpy.where(region_mask==1)[0]:
-        connectivity[rr, numpy.where(region_mask==1)[0]] = 1
-    num_fb = len(numpy.where(region_mask==1)[0])
-    print 'Region', r_idx, ',number of fibers:', num_fb
-    tot_num_fb = tot_num_fb + num_fb
-    pd_r_idx = wma.filter.mask(input_data, region_mask, color=None, preserve_point_data=True, preserve_cell_data=True, verbose=False)
-    wma.io.write_polydata(pd_r_idx, os.path.join(outdir, 'fiber_'+str(r_idx)+'.vtp'))
-print tot_num_fb
-connectivity = scipy.sparse.csr_matrix(connectivity)
-
-exit()
-
-# #######
-# fibers have the two same endpoint regions
-# ####
-#
-# dtype = [('ep_1', int), ('ep_2', int)]
-# region_label_list = [];
-# endpoint_regions = []
-# for lidx in range(0, num_fibers):
-#     input_data.GetLines().GetNextCell(line_ptids)
-#     line_length = line_ptids.GetNumberOfIds()
-#
-#     ptidx_1 = line_ptids.GetId(0)
-#     ptidx_2 = line_ptids.GetId(line_length-1)
-#     label_1 = int(label_array.GetTuple(ptidx_1)[0])
-#     label_2 = int(label_array.GetTuple(ptidx_2)[0])
-#
-#     if label_1 >= 3000 and label_1 <= 4035:
-#         label_1 = label_1 - 2000
-#
-#     if label_2 >= 3000 and label_2 <= 4035:
-#         label_2 = label_2 - 2000
-#
-#     if label_1 <= label_2:
-#         print label_1, label_2
-#         endpoint_regions.append((label_1, label_2))
-#     else:
-#         print label_2, label_1
-#         endpoint_regions.append((label_2, label_1))
-#
-# endpoint_regions = numpy.array(endpoint_regions, dtype=dtype)
-# sort_indices = numpy.argsort(endpoint_regions, order=['ep_1','ep_2'])
-#
-# ep_group_label = numpy.zeros([num_fibers, 1])
-# eps_previous = (-1, -1)
-# label_count = 0
-# for si in sort_indices:
-#     eps_ii = endpoint_regions[si]
-#     if eps_ii[0] != eps_previous[0] or eps_ii[1] != eps_previous[1] :
-#         label_count = label_count + 1
-#         ep_group_label[si] = label_count
-#     else:
-#         ep_group_label[si] = label_count
-#     eps_previous = eps_ii
-#
-# for si in sort_indices:
-#     eps = endpoint_regions[si]
-#     ep_g_label = ep_group_label[si]
-#     print  si, eps, ep_g_label
-#
-# for ui in numpy.unique(ep_group_label):
-#     ui_mask = numpy.zeros([num_fibers, 1])
-#     ui_mask[numpy.where(ep_group_label==ui)] = 1
-#     pd_ui = wma.filter.mask(input_data, ui_mask, color=None, preserve_point_data=True, preserve_cell_data=True, verbose=False)
-#     wma.io.write_polydata(pd_ui, os.path.join(outdir, 'fiber_'+str(ui)+'.vtp'))
+connectivity = connectivity_constraints._by_two_endpoints(input_data, connectivity_folder)
 
 # figure out which subject each fiber was from in the input to the clustering
 subject_fiber_list = list()

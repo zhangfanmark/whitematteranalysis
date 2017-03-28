@@ -173,11 +173,12 @@ for pd_tract_path in pd_tract_list:
     pd_tract.Update()
 
     vtk_name = os.path.split(pd_tract_path)[1]
-    vtk_name = pd_tract_path[:-4] + '_with_region' + pd_tract_path[-4:]
+    vtk_name = vtk_name[:-4] + '_with_region' + vtk_name[-4:]
     wma.io.write_polydata(pd_tract, os.path.join(args.outputDirectory, vtk_name))
 
     pd_tract_not_touch = wma.filter.mask(pd_tract, mask_touch_0_fibers, color=None, preserve_point_data=True, preserve_cell_data=True, verbose=True)
-    vtk_name = pd_tract_path[:-4] + '_with_region_not_touch' + pd_tract_path[-4:]
+    vtk_name = os.path.split(pd_tract_path)[1]
+    vtk_name = vtk_name[:-4] + '_with_region_not_touch' + vtk_name[-4:]
     dir_not_touch = os.path.join(args.outputDirectory, 'no_touch')
     if not os.path.exists(dir_not_touch):
         os.mkdir(dir_not_touch)

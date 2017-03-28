@@ -393,7 +393,7 @@ def spectral(input_polydata, number_of_clusters=200,
             polydata_m = filter.mask(input_polydata, nystrom_mask_2, verbose=False)
             atlas.nystrom_polydata = polydata_m
             polydata_n = filter.mask(input_polydata, not_nystrom_mask, verbose=False)
-            output_polydata = filter.mask(input_polydata, numpy.add(nystrom_mask_2, not_nystrom_mask),verbose=False)
+            output_polydata = filter.mask(input_polydata, numpy.add(nystrom_mask_2, not_nystrom_mask), preserve_point_data=True, preserve_cell_data=True, verbose=False)
             sz = polydata_m.GetNumberOfLines()
             number_fibers = output_polydata.GetNumberOfLines()
             print '<cluster.py> Using Nystrom approximation. Subset size (A):',  sz, '/', number_fibers, "B:", polydata_n.GetNumberOfLines()
@@ -503,14 +503,41 @@ def spectral(input_polydata, number_of_clusters=200,
     cluster_metric = None
     if centroid_finder == 'K-means':
         print '<cluster.py> K-means clustering in embedding space.'
-        centroids, cluster_metric = scipy.cluster.vq.kmeans2(embed, number_of_clusters, minit='points')
+
+        if 1:
+            # with constraint
+            centroids = []
+            cluster_metric = numpy.zeros(number_fibers)
+            num_centroids = 0
+
+            for ui in numpy.sort(numpy.unique(connectivity)):
+                group_label_subjects = numpy.where(connectivity == ui)[0]
+                group_embed = embed[group_label_subjects, :]
+                group_number_of_clusters = int(numpy.ceil(float(number_of_clusters) / float(embed.shape[0]) * float(group_embed.shape[0])))
+
+                group_centroids, group_cluster_metric = scipy.cluster.vq.kmeans2(group_embed, group_number_of_clusters, minit='points')
+                cluster_metric[group_label_subjects] = group_cluster_metric + num_centroids
+
+                centroids.append(group_centroids)
+                num_centroids = num_centroids + group_number_of_clusters
+
+            centroids = numpy.concatenate(centroids)
+        else:
+            # without constraint
+            centroids, cluster_metric = scipy.cluster.vq.kmeans2(embed, number_of_clusters, minit='points')
+
         # sort centroids by first eigenvector order
         # centroid_order = numpy.argsort(centroids[:,0])
         # sort centroids according to colormap and save them in this order in atlas
-        color = _embed_to_rgb(centroids)
-        centroid_order = render.argsort_by_jet_lookup_table(color)
-        atlas.centroids = centroids[centroid_order,:]
+        # color = _embed_to_rgb(centroids)
+        # centroid_order = render.argsort_by_jet_lookup_table(color)
+        atlas.centroids = centroids#[centroid_order,:]
         cluster_idx, dist = scipy.cluster.vq.vq(embed, atlas.centroids)
+
+        print numpy.sum(cluster_idx == cluster_metric), len(cluster_metric)
+
+        cluster_idx = cluster_metric
+
         #print "<cluster.py> Distortion metric:", cluster_metric
         if 0:
             # This is extremely slow, but leave code here if ever wanted for testing
@@ -1033,7 +1060,7 @@ def output_and_quality_control_cluster_atlas(atlas, output_polydata_s, subject_f
         mask = cluster_numbers_s == c
         cluster_size = numpy.sum(mask)
         cluster_sizes.append(cluster_size)
-        pd_c = filter.mask(output_polydata_s, mask,verbose=verbose)
+        pd_c = filter.mask(output_polydata_s, mask, preserve_point_data=True, preserve_cell_data=True, verbose=verbose)
         # color by subject so we can see which one it came from
         filter.add_point_data_array(pd_c, subject_fiber_list[mask], "Subject_ID")
         # Save hemisphere information into the polydata

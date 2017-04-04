@@ -77,7 +77,7 @@ def _by_two_endpoints(input_data, outdir):
         ui_mask[group_label_subjects] = 1
 
         num_fb = numpy.sum(ui_mask)
-        if num_fb < 5:
+        if num_fb < 500:
             ep_group_label[group_label_subjects] = -2
 
         outstr = outstr + str(ui) + '\t' + str(endpoint_regions[group_label_subjects][0][0]) + '\t' + \
@@ -109,7 +109,7 @@ def _by_two_endpoints(input_data, outdir):
         outstr = outstr + str(label_idx) + '\t' + str(ui) + '\t' + str(region_1) + '\t' + \
                  str(region_2) + '\t' + str(num_fb) + '\n'
 
-        if 1:
+        if 0:
             pd_ui = wma.filter.mask(input_data, ui_mask, color=None, preserve_point_data=True, preserve_cell_data=True, verbose=False)
             wma.io.write_polydata(pd_ui, os.path.join(outdir, 'fiber_' + str(label_idx) + '_' + str(region_1) + '_' + str(region_2) + '.vtp'))
         label_idx = label_idx + 1

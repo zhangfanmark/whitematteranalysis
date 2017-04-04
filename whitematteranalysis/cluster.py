@@ -504,7 +504,7 @@ def spectral(input_polydata, number_of_clusters=200,
     if centroid_finder == 'K-means':
         print '<cluster.py> K-means clustering in embedding space.'
 
-        if 1:
+        if 0:
             # with constraint
             centroids = []
             cluster_metric = numpy.zeros(number_fibers)

@@ -144,21 +144,23 @@ if not load_previous:
             eps_all.append(ep_1)
             eps_all.append(ep_2)
 
+        #eps_all = eps_all(numpy.where(eps_all >=0)) # remove the points that outside brain
+
         tmp = numpy.argsort(numpy.bincount(eps_all))[-2:] # The two points that mostly appear
 
         try:
             ep_1_label = min(tmp)
             ep_1_label_percent = numpy.sum(numpy.sum(eps_all == ep_1_label)) / float(len(eps_all))
         except:
-            ep_1_label = -1
-            ep_1_label_percent = -1
+            ep_1_label = 0
+            ep_1_label_percent = 0
 
         try:
             ep_2_label = max(tmp)
             ep_2_label_percent = numpy.sum(numpy.sum(eps_all == ep_2_label)) / float(len(eps_all))
         except:
-            ep_2_label = -1
-            ep_2_label_percent = -1
+            ep_2_label = 0
+            ep_2_label_percent = 0
 
         return (ep_1_label, ep_2_label, ep_1_label_percent, ep_2_label_percent)
 
@@ -172,15 +174,15 @@ if not load_previous:
         ep_1_label_percent_all_clusters = []
         ep_2_label_percent_all_clusters = []
 
-        count = 0
+        # count = 0
         for pd_fc_path in pd_fc_paths:
 
             if verbose:
                 print '  - Cluster', os.path.split(pd_fc_path)[1]
 
-            count = count + 1
-            if count > 10:
-                break
+            # count = count + 1
+            # if count > 20:
+            #     break
 
             pd_fc = wma.io.read_polydata(pd_fc_path)
             ep_1_label, ep_2_label, ep_1_label_percent, ep_2_label_percent = get_endpoint_labels_per_cluster(pd_fc)
@@ -215,25 +217,55 @@ if not load_previous:
     outstr = 'cluster index' + '\t'+ 'region-1' + '\t'+ 'region-1-percentage' + '\t'+ 'region-2' + '\t'+ 'region-2-percentage' + '\n'
     for c_idx in range(num_clusters):
 
-        ep_1_label_per_cluster_all_subjects = ep_1_label_all_clusters_all_subjects[:, c_idx]
-        ep_2_label_per_cluster_all_subjects = ep_2_label_all_clusters_all_subjects[:, c_idx]
+        ep_1_label_per_cluster_all_subjects_tmp = ep_1_label_all_clusters_all_subjects[:, c_idx]
+        ep_2_label_per_cluster_all_subjects_tmp = ep_2_label_all_clusters_all_subjects[:, c_idx]
 
-        ep_1_label_per_cluster_all_subjects = ep_1_label_per_cluster_all_subjects.astype(numpy.int64)
-        ep_2_label_per_cluster_all_subjects = ep_2_label_per_cluster_all_subjects.astype(numpy.int64)
+        ep_1_label_per_cluster_all_subjects_tmp = ep_1_label_per_cluster_all_subjects_tmp.astype(numpy.int64)
+        ep_2_label_per_cluster_all_subjects_tmp = ep_2_label_per_cluster_all_subjects_tmp.astype(numpy.int64)
 
-        try:
-            ep_1_label_per_cluster_final = numpy.argmax(numpy.bincount(ep_1_label_per_cluster_all_subjects))
-        except:
-            ep_1_label_per_cluster_final = -1
+        ep_both_label_per_cluster_all_subjects_tmp = numpy.concatenate((ep_1_label_per_cluster_all_subjects_tmp, ep_2_label_per_cluster_all_subjects_tmp))
 
-        try:
-            ep_2_label_per_cluster_final = numpy.argmax(numpy.bincount(ep_2_label_per_cluster_all_subjects))
-        except:
-            ep_2_label_per_cluster_final = -1
+        ep_label_occurrence = numpy.bincount(ep_both_label_per_cluster_all_subjects_tmp)
 
-        ep_1_label_per_cluster_final_percent = numpy.sum(numpy.sum(ep_1_label_per_cluster_final == ep_1_label_per_cluster_all_subjects)) / float(len(ep_2_label_per_cluster_all_subjects))
-        ep_2_label_per_cluster_final_percent = numpy.sum(numpy.sum(ep_2_label_per_cluster_final == ep_2_label_per_cluster_all_subjects)) / float(len(ep_2_label_per_cluster_all_subjects))
+        top_two_labels = numpy.argsort(ep_label_occurrence)[-2:]
 
+        ep_1_label_per_cluster_final = top_two_labels[1]
+        ep_2_label_per_cluster_final = top_two_labels[0]
+
+        num_subjects_with_ep_1_final = 0
+        for s_idx in range(num_subjects):
+            if ep_1_label_per_cluster_all_subjects_tmp[s_idx] == ep_1_label_per_cluster_final or \
+               ep_2_label_per_cluster_all_subjects_tmp[s_idx] == ep_1_label_per_cluster_final:
+                num_subjects_with_ep_1_final = num_subjects_with_ep_1_final + 1
+
+        num_subjects_with_ep_2_final = 0
+        for s_idx in range(num_subjects):
+            if ep_1_label_per_cluster_all_subjects_tmp[s_idx] == ep_2_label_per_cluster_final or \
+               ep_2_label_per_cluster_all_subjects_tmp[s_idx] == ep_2_label_per_cluster_final:
+                num_subjects_with_ep_2_final = num_subjects_with_ep_2_final + 1
+
+        ep_1_label_occurrence = ep_label_occurrence[ep_1_label_per_cluster_final]
+
+        if ep_1_label_occurrence - num_subjects_with_ep_1_final > num_subjects_with_ep_2_final:
+            ep_2_label_per_cluster_final = ep_1_label_per_cluster_final
+            num_subjects_with_ep_2_final = ep_1_label_occurrence - num_subjects_with_ep_1_final
+
+        ep_1_label_per_cluster_final_percent = num_subjects_with_ep_1_final / float(num_subjects)
+        ep_2_label_per_cluster_final_percent = num_subjects_with_ep_2_final / float(num_subjects)
+
+
+        # try:
+        #     ep_1_label_per_cluster_final = numpy.argmax(numpy.bincount(ep_1_label_per_cluster_all_subjects))
+        # except:
+        #     ep_1_label_per_cluster_final = 0
+        #
+        # try:
+        #     ep_2_label_per_cluster_final = numpy.argmax(numpy.bincount(ep_2_label_per_cluster_all_subjects))
+        # except:
+        #     ep_2_label_per_cluster_final = 0
+        #
+        # ep_1_label_per_cluster_final_percent = numpy.sum(numpy.sum(ep_1_label_per_cluster_final == ep_1_label_per_cluster_all_subjects)) / float(len(ep_2_label_per_cluster_all_subjects))
+        # ep_2_label_per_cluster_final_percent = numpy.sum(numpy.sum(ep_2_label_per_cluster_final == ep_2_label_per_cluster_all_subjects)) / float(len(ep_2_label_per_cluster_all_subjects))
 
         outstr = outstr + 'cluster_{0:05d}.vtp'.format(c_idx+1) + '\t' + str(ep_1_label_per_cluster_final) + '\t' + str(ep_1_label_per_cluster_final_percent) + '\t' + str(
             ep_2_label_per_cluster_final) + '\t' + str(ep_2_label_per_cluster_final_percent) + '\n'
@@ -268,36 +300,39 @@ for c_idx in range(num_clusters):
            (ep_1_label_per_cluster_final == region_list[1] and ep_2_label_per_cluster_final == region_list[0]):
             result_cluster_list.append(c_idx)
 
-print '\n<EndPointAnalysis> Find', len(result_cluster_list), 'cluster(s) connecting region(s)', region_list, ', including:'
-outstr = ' - cluster_'
-for result_cluster in result_cluster_list:
-    outstr = outstr + '{0:05d}'.format(result_cluster+1) + ', '
-print outstr[:-2]
+print '\n<EndPointAnalysis> Find', len(result_cluster_list), 'cluster(s) connecting region(s)', region_list
 
-mrml_filename = "EPA_clusters_in_"+hemi+"_connecting_region_" + str(region_list).replace(', ', '-') + ".mrml"
-print "\n<EndPointAnalysis> A mrml file to display the result cluster(s) is generated as", mrml_filename
-print '  Copy this file to a folder containing the result and load it to 3D Slicer to display the fiber clusters.'
+if len(result_cluster_list) > 0:
 
-cluster_polydatas = []
-for c_idx in result_cluster_list:
-    cluster_polydatas.append("cluster_"+str(c_idx+1).zfill(5)+".vtp")
+    outstr = ' - cluster_'
+    for result_cluster in result_cluster_list:
+        outstr = outstr + '{0:05d}'.format(result_cluster+1) + ', '
+    print outstr[:-2]
 
-number_of_files = len(cluster_polydatas)
-step = int(100 * 255.0 / (number_of_files))
-R = numpy.array(range(0, 100 * 255 + 1, step)) / 100.0
-G = numpy.abs(range(100 * -127, 100 * 128 + 1, step)) * 2.0 / 100.0
-B = numpy.array(range(100 * 255 + 1, 0, -step)) / 100.0
+    mrml_filename = "EPA_clusters_in_"+hemi+"_connecting_region_" + str(region_list).replace(', ', '-') + ".mrml"
+    print "\n<EndPointAnalysis> A mrml file to display the result cluster(s) is generated as", mrml_filename
+    print '  Copy this file to a folder containing the result and load it to 3D Slicer to display the fiber clusters.'
 
-colors = list()
-idx = 0
-for pd in cluster_polydatas:
-    colors.append([R[idx], G[idx], B[idx]])
-    idx += 1
-colors = numpy.array(colors)
+    cluster_polydatas = []
+    for c_idx in result_cluster_list:
+        cluster_polydatas.append("cluster_"+str(c_idx+1).zfill(5)+".vtp")
 
-wma.mrml.write(cluster_polydatas, colors, os.path.join(args.inputDirectory, mrml_filename), ratio=1.0)
+    number_of_files = len(cluster_polydatas)
+    step = int(100 * 255.0 / (number_of_files))
+    R = numpy.array(range(0, 100 * 255 + 1, step)) / 100.0
+    G = numpy.abs(range(100 * -127, 100 * 128 + 1, step)) * 2.0 / 100.0
+    B = numpy.array(range(100 * 255 + 1, 0, -step)) / 100.0
 
-if flag_cp_mrml:
-    print 'Not yet implemented.'
+    colors = list()
+    idx = 0
+    for pd in cluster_polydatas:
+        colors.append([R[idx], G[idx], B[idx]])
+        idx += 1
+    colors = numpy.array(colors)
+
+    wma.mrml.write(cluster_polydatas, colors, os.path.join(args.inputDirectory, mrml_filename), ratio=1.0)
+
+    if flag_cp_mrml:
+        print 'Not yet implemented.'
 
 print '\n<EndPointAnalysis> Done! \n'

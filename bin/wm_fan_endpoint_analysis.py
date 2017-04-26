@@ -229,29 +229,35 @@ if not load_previous:
 
         top_two_labels = numpy.argsort(ep_label_occurrence)[-2:]
 
-        ep_1_label_per_cluster_final = top_two_labels[1]
-        ep_2_label_per_cluster_final = top_two_labels[0]
+        if len(top_two_labels) == 2:
+            ep_1_label_per_cluster_final = top_two_labels[1]
+            ep_2_label_per_cluster_final = top_two_labels[0]
 
-        num_subjects_with_ep_1_final = 0
-        for s_idx in range(num_subjects):
-            if ep_1_label_per_cluster_all_subjects_tmp[s_idx] == ep_1_label_per_cluster_final or \
-               ep_2_label_per_cluster_all_subjects_tmp[s_idx] == ep_1_label_per_cluster_final:
-                num_subjects_with_ep_1_final = num_subjects_with_ep_1_final + 1
+            num_subjects_with_ep_1_final = 0
+            for s_idx in range(num_subjects):
+                if ep_1_label_per_cluster_all_subjects_tmp[s_idx] == ep_1_label_per_cluster_final or \
+                   ep_2_label_per_cluster_all_subjects_tmp[s_idx] == ep_1_label_per_cluster_final:
+                    num_subjects_with_ep_1_final = num_subjects_with_ep_1_final + 1
 
-        num_subjects_with_ep_2_final = 0
-        for s_idx in range(num_subjects):
-            if ep_1_label_per_cluster_all_subjects_tmp[s_idx] == ep_2_label_per_cluster_final or \
-               ep_2_label_per_cluster_all_subjects_tmp[s_idx] == ep_2_label_per_cluster_final:
-                num_subjects_with_ep_2_final = num_subjects_with_ep_2_final + 1
+            num_subjects_with_ep_2_final = 0
+            for s_idx in range(num_subjects):
+                if ep_1_label_per_cluster_all_subjects_tmp[s_idx] == ep_2_label_per_cluster_final or \
+                   ep_2_label_per_cluster_all_subjects_tmp[s_idx] == ep_2_label_per_cluster_final:
+                    num_subjects_with_ep_2_final = num_subjects_with_ep_2_final + 1
 
-        ep_1_label_occurrence = ep_label_occurrence[ep_1_label_per_cluster_final]
+            ep_1_label_occurrence = ep_label_occurrence[ep_1_label_per_cluster_final]
 
-        if ep_1_label_occurrence - num_subjects_with_ep_1_final > num_subjects_with_ep_2_final:
-            ep_2_label_per_cluster_final = ep_1_label_per_cluster_final
-            num_subjects_with_ep_2_final = ep_1_label_occurrence - num_subjects_with_ep_1_final
+            if ep_1_label_occurrence - num_subjects_with_ep_1_final > num_subjects_with_ep_2_final:
+                ep_2_label_per_cluster_final = ep_1_label_per_cluster_final
+                num_subjects_with_ep_2_final = ep_1_label_occurrence - num_subjects_with_ep_1_final
 
-        ep_1_label_per_cluster_final_percent = num_subjects_with_ep_1_final / float(num_subjects)
-        ep_2_label_per_cluster_final_percent = num_subjects_with_ep_2_final / float(num_subjects)
+            ep_1_label_per_cluster_final_percent = num_subjects_with_ep_1_final / float(num_subjects)
+            ep_2_label_per_cluster_final_percent = num_subjects_with_ep_2_final / float(num_subjects)
+        else:
+            ep_2_label_per_cluster_final = 0
+            ep_2_label_per_cluster_final = 0
+            ep_1_label_per_cluster_final_percent = 0
+            ep_2_label_per_cluster_final_percent = 0
 
 
         # try:

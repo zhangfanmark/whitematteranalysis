@@ -23,7 +23,7 @@ def get_label_array(input_data):
 
     return label_array
 
-def _by_two_endpoints(input_data, outdir):
+def _by_two_endpoints(input_data, outdir, output_fibers_per_group=True):
     label_array = get_label_array(input_data)
 
     num_fibers = input_data.GetNumberOfLines()
@@ -32,6 +32,7 @@ def _by_two_endpoints(input_data, outdir):
     dtype = [('ep_1', int), ('ep_2', int)]
     endpoint_regions = []
 
+    # get the endpoint regions for each fiber
     input_data.GetLines().InitTraversal()
     line_ptids = vtk.vtkIdList()
     for lidx in range(0, num_fibers):
@@ -51,9 +52,11 @@ def _by_two_endpoints(input_data, outdir):
         else:
             endpoint_regions.append((label_2, label_1))
 
+    # sort the fibers according to the endpoint label of the first point
     endpoint_regions = numpy.array(endpoint_regions, dtype=dtype)
     sort_indices = numpy.argsort(endpoint_regions, order=['ep_1', 'ep_2'])
 
+    # assign each fiber a group label, where clusters have the same endpoint regions are with a same label
     ep_group_label = numpy.zeros([num_fibers, 1])
     eps_previous = (-1, -1)
     label_count = 0
@@ -66,10 +69,14 @@ def _by_two_endpoints(input_data, outdir):
             ep_group_label[si] = label_count
         eps_previous = eps_ii
 
-    output_file = open(os.path.join(outdir, 'region_number_before_remove.txt'), 'w')
-    outstr = 'Region_Label' + '\t' + 'Region_1' + '\t' + 'Region_2' + '\t' + 'Number of Fibers\n'
+    output_file = open(os.path.join(outdir, 'num_fibers_per_region_pair.txt'), 'w')
+    outstr = 'Group_Label' + '\t' + 'Region_1' + '\t' + 'Region_2' + '\t' + 'Num_Fibers\n'
 
-    # this is used to remove the connections if there are too few fibers between two regions
+
+    threshold_num_fiber_per_group = 10
+    print '\n<EP region connectivity> Region pair (group) that has less than', threshold_num_fiber_per_group, 'fibers will be set Group_-1 that are unclassified fibers.'
+    # Assign group label to -1, if there are too few fibers in this group.
+    # All the group_-1 fibers are the unclassified ones.
     for ui in numpy.unique(ep_group_label):
         group_label_subjects = numpy.where(ep_group_label == ui)[0]
 
@@ -77,8 +84,8 @@ def _by_two_endpoints(input_data, outdir):
         ui_mask[group_label_subjects] = 1
 
         num_fb = numpy.sum(ui_mask)
-        if num_fb < 500:
-            ep_group_label[group_label_subjects] = -2
+        if num_fb < threshold_num_fiber_per_group:
+            ep_group_label[group_label_subjects] = -1
 
         outstr = outstr + str(ui) + '\t' + str(endpoint_regions[group_label_subjects][0][0]) + '\t' + \
                  str(endpoint_regions[group_label_subjects][0][1]) + '\t' + str(num_fb) + '\n'
@@ -86,11 +93,11 @@ def _by_two_endpoints(input_data, outdir):
     output_file.write(outstr)
     output_file.close()
 
-    # After removing the connections if there are too few fibers between two regions
-    output_file = open(os.path.join(outdir, 'region_number_after_remove.txt'), 'w')
-    outstr = 'Region_Index' + '\t' + 'Region_Label' + '\t' + 'Region_1' + '\t' + 'Region_2' + '\t' + 'Number of Fibers\n'
+    # Output how many fibers are in each group
+    output_file = open(os.path.join(outdir, 'num_fibers_per_group.txt'), 'w')
+    outstr = 'index' + '\t' + 'Group_Label' + '\t' + 'Region_1' + '\t' + 'Region_2' + '\t' + 'Num_Fibers\n'
 
-    label_idx = 0
+    label_idx = 1
     for ui in numpy.sort(numpy.unique(ep_group_label)):
         group_label_subjects = numpy.where(ep_group_label == ui)[0]
         # for rr in group_label_subjects:
@@ -100,24 +107,27 @@ def _by_two_endpoints(input_data, outdir):
         ui_mask[group_label_subjects] = 1
 
         num_fb = numpy.sum(ui_mask)
-        if ui == -2:
-            region_1 = -2
-            region_2 = -2
+        if ui == -1:
+            region_1 = -1
+            region_2 = -1
         else:
             region_1 = endpoint_regions[group_label_subjects][0][0]
             region_2 = endpoint_regions[group_label_subjects][0][1]
         outstr = outstr + str(label_idx) + '\t' + str(ui) + '\t' + str(region_1) + '\t' + \
                  str(region_2) + '\t' + str(num_fb) + '\n'
 
-        if 0:
+        if output_fibers_per_group:
             pd_ui = wma.filter.mask(input_data, ui_mask, color=None, preserve_point_data=True, preserve_cell_data=True, verbose=False)
-            wma.io.write_polydata(pd_ui, os.path.join(outdir, 'fiber_' + str(label_idx) + '_' + str(region_1) + '_' + str(region_2) + '.vtp'))
+            wma.io.write_polydata(pd_ui, os.path.join(outdir, 'Conn_I{0:04d}'.format(int(label_idx)) + '_G{0:04d}'.format(int(ui)) + '_R{0:04d}'.format(int(region_1)) + '-{0:04d}'.format(int(region_2)) + '.vtp'))
         label_idx = label_idx + 1
+
+    '{0:05d}'
 
     output_file.write(outstr)
     output_file.close()
 
-    print 'Number of region labels in the data,', len(numpy.unique(ep_group_label))
+    print '<EP region connectivity> Number of valid region pairs (groups) is', len(numpy.unique(ep_group_label))
+    print '  Number of clusters (-k) should be set greater than', len(numpy.unique(ep_group_label))
 
     #connectivity = scipy.sparse.csr_matrix(connectivity)
     connectivity = ep_group_label
@@ -220,6 +230,6 @@ def region_label(label):
     elif label in WM_Unsegmented:
         label = 5001
     else:
-        label = -1
+        label = 0
 
     return label

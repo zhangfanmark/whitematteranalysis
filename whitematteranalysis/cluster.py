@@ -29,6 +29,9 @@ except ImportError:
     print "<cluster.py> Failed to import joblib, cannot multiprocess."
     print "<cluster.py> Please install joblib for this functionality."
 
+import warnings
+warnings.filterwarnings('ignore')
+
 import fibers
 import similarity
 import filter
@@ -444,7 +447,7 @@ def spectral(input_polydata, number_of_clusters=200,
     print '<cluster.py> Top eigenvalues:', atlas.e_val[::-1][1:number_of_eigenvectors]
 
     # 4) Compute embedding using eigenvectors
-    print('<cluster.py> Compute embedding using eigenvectors.')
+    print '<cluster.py> Compute embedding using eigenvectors.',
     if use_nystrom:
         # Create embedding vectors using nystrom approximation to find
         # the approximate top eigenvectors of the matrix
@@ -491,7 +494,7 @@ def spectral(input_polydata, number_of_clusters=200,
         embed = embed[:, ::-1]
 
     tmp = embed
-    print '  -- embed: range', numpy.min(tmp), 'to', numpy.max(tmp), \
+    print ' embed: range', numpy.min(tmp), 'to', numpy.max(tmp), \
         ', shape:', tmp.shape, ', NaN #:', (numpy.isnan(tmp)).sum(), '/', tmp.shape[0] * tmp.shape[1]
 
     # Default is always k-means. Other code is just left for testing. Did not improve results.
@@ -504,7 +507,7 @@ def spectral(input_polydata, number_of_clusters=200,
     if centroid_finder == 'K-means':
         print '<cluster.py> K-means clustering in embedding space.'
 
-        if 0:
+        if connectivity is not None:
             # with constraint
             centroids = []
             cluster_metric = numpy.zeros(number_fibers)
@@ -532,9 +535,9 @@ def spectral(input_polydata, number_of_clusters=200,
         # color = _embed_to_rgb(centroids)
         # centroid_order = render.argsort_by_jet_lookup_table(color)
         atlas.centroids = centroids#[centroid_order,:]
-        cluster_idx, dist = scipy.cluster.vq.vq(embed, atlas.centroids)
 
-        print numpy.sum(cluster_idx == cluster_metric), len(cluster_metric)
+        # cluster_idx, dist = scipy.cluster.vq.vq(embed, atlas.centroids) # This can assign fiber to the cluster to another group, so use cluster_metric
+        # print '[cluster_idx == cluster_metric]', numpy.sum(cluster_idx == cluster_metric), len(cluster_metric)
 
         cluster_idx = cluster_metric
 
@@ -873,8 +876,7 @@ def _format_output_polydata(output_polydata, cluster_idx, color, embed, estimate
     col_sum_data.SetName('MeasuredFiberSimilarity')
     
     for lidx in range(0, output_polydata.GetNumberOfLines()):
-        embed_colors.InsertNextTuple3(
-            color[lidx, 0], color[lidx, 1], color[lidx, 2])
+        embed_colors.InsertNextTuple3( color[lidx, 0], color[lidx, 1], color[lidx, 2])
         cluster_colors.InsertNextTuple1(int(cluster_idx[lidx]))
         embed_data.InsertNextTupleValue(embed[lidx, :])
         row_sum_data.InsertNextTuple1(float(estimated_row_sum[lidx]))
@@ -947,7 +949,7 @@ def _embed_to_rgb(embed):
     return color
 
 
-def output_and_quality_control_cluster_atlas(atlas, output_polydata_s, subject_fiber_list, input_polydatas, number_of_subjects, outdir, cluster_numbers_s, color, embed, number_of_fibers_to_display, testing=False, verbose=False, render_images=True):
+def output_and_quality_control_cluster_atlas(atlas, output_polydata_s, subject_fiber_list, input_polydatas, number_of_subjects, outdir, cluster_numbers_s, color, embed, number_of_fibers_to_display, testing=False, verbose=False, render_images=True, connectivity=None):
 
     """Save the output in our atlas format for automatic labeling of clusters.
 
@@ -1002,6 +1004,7 @@ def output_and_quality_control_cluster_atlas(atlas, output_polydata_s, subject_f
     std_fiber_len_per_cluster = list()
     mean_fibers_per_subject_per_cluster = list()
     std_fibers_per_subject_per_cluster = list()
+    group_label_per_cluster = list()
 
     # find out length of each fiber
     fiber_length, step_size = filter.compute_lengths(output_polydata_s)
@@ -1019,16 +1022,38 @@ def output_and_quality_control_cluster_atlas(atlas, output_polydata_s, subject_f
         mean_fiber_len_per_cluster.append(numpy.mean(fiber_length[cluster_mask]))
         std_fiber_len_per_cluster.append(numpy.std(fiber_length[cluster_mask]))
 
+        if connectivity is not None:
+            try:
+                gl = connectivity[cluster_mask][0]
+            except:
+                gl = numpy.nan
+
+            group_label_per_cluster.append(gl)
+
+            if 0: # for test only
+                for i in connectivity[cluster_mask]:
+                    if gl != i:
+                        print 'ERROR!!!!!!!'
+
     percent_subjects_per_cluster = numpy.divide(numpy.array(subjects_per_cluster),float(number_of_subjects))
 
     # Save output quality control information
     print "<cluster.py> Saving cluster quality control information file."
-    clusters_qc_file = open(clusters_qc_fname, 'w')
-    print >> clusters_qc_file, 'cluster_idx','\t', 'number_subjects','\t', 'percent_subjects','\t', 'mean_length','\t', 'std_length','\t', 'mean_fibers_per_subject','\t', 'std_fibers_per_subject'
+    #clusters_qc_file = open(clusters_qc_fname, 'w')
+    print >> clusters_qc_file, 'cluster_idx','\t', 'number_subjects','\t', 'percent_subjects','\t', 'mean_length','\t', 'std_length','\t', 'mean_fibers_per_subject','\t', 'std_fibers_per_subject',
+    if connectivity is not None:
+        print >> clusters_qc_file, '\t', 'group_label'
+    else:
+        print >> clusters_qc_file, '\n'
+
     for cidx in cluster_indices:
         print >> clusters_qc_file, cidx + 1,'\t', subjects_per_cluster[cidx],'\t', percent_subjects_per_cluster[cidx] * 100.0,'\t', \
             mean_fiber_len_per_cluster[cidx],'\t', std_fiber_len_per_cluster[cidx],'\t', \
-            mean_fibers_per_subject_per_cluster[cidx],'\t', std_fibers_per_subject_per_cluster[cidx]
+            mean_fibers_per_subject_per_cluster[cidx],'\t', std_fibers_per_subject_per_cluster[cidx],
+        if connectivity is not None:
+            print >> clusters_qc_file, '\t', group_label_per_cluster[cidx]
+        else:
+            print >> clusters_qc_file, '\n'
 
     clusters_qc_file.close()
 
@@ -1056,7 +1081,7 @@ def output_and_quality_control_cluster_atlas(atlas, output_polydata_s, subject_f
     cluster_sizes = list()
     cluster_fnames = list()
     for c in cluster_indices:
-        print c,
+        # print c,
         mask = cluster_numbers_s == c
         cluster_size = numpy.sum(mask)
         cluster_sizes.append(cluster_size)
@@ -1070,7 +1095,9 @@ def output_and_quality_control_cluster_atlas(atlas, output_polydata_s, subject_f
         farray.convert_from_polydata(pd_c, points_per_fiber=50)
         filter.add_point_data_array(pd_c, farray.fiber_hemisphere, "Hemisphere")
         # The clusters are stored starting with 1, not 0, for user friendliness.
+
         fname_c = 'cluster_{0:05d}.vtp'.format(c+1)
+
         # save the filename for writing into the MRML file
         fnames.append(fname_c)
         # prepend the output directory
@@ -1090,7 +1117,7 @@ def output_and_quality_control_cluster_atlas(atlas, output_polydata_s, subject_f
     empty_count = 0
     for sz, fname in zip(cluster_sizes,cluster_fnames):
         if sz == 0:
-            print sz, ":", fname
+            #print sz, ":", fname
             empty_count += 1
     if empty_count:
         print "<cluster.py> Warning. Empty clusters found:", empty_count

@@ -23,7 +23,7 @@ def get_label_array(input_data):
 
     return label_array
 
-def _by_two_endpoints(input_data, outdir, output_fibers_per_group=True):
+def _by_two_endpoints(input_data, outdir, subject_fiber_list, output_fibers_per_group=True):
     label_array = get_label_array(input_data)
 
     num_fibers = input_data.GetNumberOfLines()
@@ -57,80 +57,83 @@ def _by_two_endpoints(input_data, outdir, output_fibers_per_group=True):
     sort_indices = numpy.argsort(endpoint_regions, order=['ep_1', 'ep_2'])
 
     # assign each fiber a group label, where clusters have the same endpoint regions are with a same label
-    ep_group_label = numpy.zeros([num_fibers, 1])
+    group_label_per_fiber = numpy.zeros(num_fibers)
     eps_previous = (-1, -1)
     label_count = 0
     for si in sort_indices:
         eps_ii = endpoint_regions[si]
         if eps_ii[0] != eps_previous[0] or eps_ii[1] != eps_previous[1]:
             label_count = label_count + 1
-            ep_group_label[si] = label_count
+            group_label_per_fiber[si] = label_count
         else:
-            ep_group_label[si] = label_count
+            group_label_per_fiber[si] = label_count
         eps_previous = eps_ii
 
     output_file = open(os.path.join(outdir, 'num_fibers_per_region_pair.txt'), 'w')
-    outstr = 'Group_Label' + '\t' + 'Region_1' + '\t' + 'Region_2' + '\t' + 'Num_Fibers\n'
+    outstr = 'Group_Label\t' + 'Region_1\t' + 'Region_2\t' + 'Num_Fibers\t' + 'Num_Subjects\n'
 
-
-    threshold_num_fiber_per_group = 10
-    print '\n<EP region connectivity> Region pair (group) that has less than', threshold_num_fiber_per_group, 'fibers will be set Group_-1 that are unclassified fibers.'
+    print '\n<EP region connectivity> Region pair (group) that are less commonly present will be set Group_-1 as are unclassified fibers.'
     # Assign group label to -1, if there are too few fibers in this group.
     # All the group_-1 fibers are the unclassified ones.
-    for ui in numpy.unique(ep_group_label):
-        group_label_subjects = numpy.where(ep_group_label == ui)[0]
+    num_subjects = len(numpy.unique(subject_fiber_list))
+    for gl in numpy.unique(group_label_per_fiber):
+        fiber_idx_per_group = numpy.where(group_label_per_fiber == gl)[0]
 
-        ui_mask = numpy.zeros([num_fibers, 1])
-        ui_mask[group_label_subjects] = 1
+        num_fb = len(fiber_idx_per_group)
 
-        num_fb = numpy.sum(ui_mask)
-        if num_fb < threshold_num_fiber_per_group:
-            ep_group_label[group_label_subjects] = -1
+        subjects_with_connection_per_group = subject_fiber_list[fiber_idx_per_group]
+        num_subjects_per_group = len(numpy.unique(subjects_with_connection_per_group))
 
-        outstr = outstr + str(ui) + '\t' + str(endpoint_regions[group_label_subjects][0][0]) + '\t' + \
-                 str(endpoint_regions[group_label_subjects][0][1]) + '\t' + str(num_fb) + '\n'
+        # threshold_num_fiber_per_group = 10
+        # if num_fb < threshold_num_fiber_per_group:
+        if num_subjects_per_group < num_subjects / float(2):
+            group_label_per_fiber[fiber_idx_per_group] = -1
+
+        outstr = outstr + str(gl) + '\t' + str(endpoint_regions[fiber_idx_per_group][0][0]) + '\t' + \
+                 str(endpoint_regions[fiber_idx_per_group][0][1]) + '\t' + str(num_fb) + '\t' + str(num_subjects_per_group) + '\n'
 
     output_file.write(outstr)
     output_file.close()
 
     # Output how many fibers are in each group
-    output_file = open(os.path.join(outdir, 'num_fibers_per_group.txt'), 'w')
-    outstr = 'index' + '\t' + 'Group_Label' + '\t' + 'Region_1' + '\t' + 'Region_2' + '\t' + 'Num_Fibers\n'
+    output_file = open(os.path.join(outdir, 'num_fibers_per_group_after_combining_less_common_connection.txt'), 'w')
+    outstr = 'index\t' + 'Group_Label\t' + 'Region_1\t' + 'Region_2\t' + 'Num_Fibers\t' + 'Num_Subjects\n'
 
     label_idx = 1
-    for ui in numpy.sort(numpy.unique(ep_group_label)):
-        group_label_subjects = numpy.where(ep_group_label == ui)[0]
-        # for rr in group_label_subjects:
-        #     connectivity[rr, group_label_subjects] = 1
+    for gl in numpy.sort(numpy.unique(group_label_per_fiber)):
+        fiber_idx_per_group = numpy.where(group_label_per_fiber == gl)[0]
+        # for rr in fiber_idx_per_group:
+        #     connectivity[rr, fiber_idx_per_group] = 1
 
-        ui_mask = numpy.zeros([num_fibers, 1])
-        ui_mask[group_label_subjects] = 1
+        gl_mask = numpy.zeros([num_fibers, 1])
+        gl_mask[fiber_idx_per_group] = 1
 
-        num_fb = numpy.sum(ui_mask)
-        if ui == -1:
+        subjects_with_connection_per_group = subject_fiber_list[fiber_idx_per_group]
+        num_subjects_per_group = len(numpy.unique(subjects_with_connection_per_group))
+        num_fb = numpy.sum(gl_mask)
+        if gl == -1:
             region_1 = -1
             region_2 = -1
         else:
-            region_1 = endpoint_regions[group_label_subjects][0][0]
-            region_2 = endpoint_regions[group_label_subjects][0][1]
-        outstr = outstr + str(label_idx) + '\t' + str(ui) + '\t' + str(region_1) + '\t' + \
-                 str(region_2) + '\t' + str(num_fb) + '\n'
+            region_1 = endpoint_regions[fiber_idx_per_group][0][0]
+            region_2 = endpoint_regions[fiber_idx_per_group][0][1]
+        outstr = outstr + str(label_idx) + '\t' + str(gl) + '\t' + str(region_1) + '\t' + \
+                 str(region_2) + '\t' + str(num_fb) + '\t' + str(num_subjects_per_group) + '\n'
 
         if output_fibers_per_group:
-            pd_ui = wma.filter.mask(input_data, ui_mask, color=None, preserve_point_data=True, preserve_cell_data=True, verbose=False)
-            wma.io.write_polydata(pd_ui, os.path.join(outdir, 'Conn_I{0:04d}'.format(int(label_idx)) + '_G{0:04d}'.format(int(ui)) + '_R{0:04d}'.format(int(region_1)) + '-{0:04d}'.format(int(region_2)) + '.vtp'))
+            pd_ui = wma.filter.mask(input_data, gl_mask, color=None, preserve_point_data=True, preserve_cell_data=True, verbose=False)
+            wma.io.write_polydata(pd_ui, os.path.join(outdir, 'conn{0:04d}'.format(int(label_idx)) + '_G{0:04d}'.format(int(gl)) +
+                                                      '_R{0:04d}'.format(int(region_1)) + '-{0:04d}'.format(int(region_2)) + '.vtp'))
         label_idx = label_idx + 1
-
-    '{0:05d}'
 
     output_file.write(outstr)
     output_file.close()
 
-    print '<EP region connectivity> Number of valid region pairs (groups) is', len(numpy.unique(ep_group_label))
-    print '  Number of clusters (-k) should be set greater than', len(numpy.unique(ep_group_label))
+    print '<EP region connectivity> Number of valid region pairs (groups) is', len(numpy.unique(group_label_per_fiber))
+    print '  Number of clusters (-k) should be set greater than', len(numpy.unique(group_label_per_fiber))
 
     #connectivity = scipy.sparse.csr_matrix(connectivity)
-    connectivity = ep_group_label
+    connectivity = group_label_per_fiber
 
     return connectivity
 
@@ -209,7 +212,7 @@ def region_label(label):
     right_WM_cortical_regions = range(4001, 4036)
 
     CC_regions = range(251, 256)
-    comm_sub_cortical_regions = [16, 77, 85]
+    commissural_sub_cortical_regions = [16, 77, 85]
 
     WM_Unsegmented = [5001, 5002]
 
@@ -221,7 +224,7 @@ def region_label(label):
         label = label - 1000
     elif label in left_GM_cortical_regions:
         label = label
-    elif label in CC_regions or label in comm_sub_cortical_regions:
+    elif label in CC_regions or label in commissural_sub_cortical_regions:
         label = label
     elif label in right_sub_cortical_regions:
         label = left_sub_cortical_regions[right_sub_cortical_regions.index(label)]

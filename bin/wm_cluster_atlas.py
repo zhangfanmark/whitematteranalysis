@@ -344,13 +344,14 @@ readme_file.close()
 
 # read in data
 input_pds = list()
-for fname in input_polydatas:
+for fname, subject_idx in zip(input_polydatas, range(number_of_subjects)):
     # read data
     print "<wm_cluster_atlas.py> Reading input file:", fname
     pd = wma.io.read_polydata(fname)
     # preprocessing step: minimum length
     #print "<wm_cluster_atlas.py> Preprocessing by length:", fiber_length, "mm."
     pd2 = wma.filter.preprocess(pd, fiber_length,preserve_point_data=True,preserve_cell_data=True,verbose=verbose)
+
     # preprocessing step: fibers to analyze
     if number_of_fibers_per_subject is not None:
         print "<wm_cluster_atlas.py> Downsampling to", number_of_fibers_per_subject, "fibers from",  pd2.GetNumberOfLines(),"fibers over length", fiber_length, "."
@@ -361,6 +362,15 @@ for fname in input_polydatas:
             exit()
     else:
         pd3 = pd2
+
+    # Add an array in PointData to for subject index
+    vtk_array = vtk.vtkIntArray()
+    vtk_array.SetName('subject_idx')
+    for p_idx in range(0, pd3.GetNumberOfPoints()):
+        vtk_array.InsertNextTuple1(int(subject_idx + 1))
+
+    pd3.GetPointData().AddArray(vtk_array)
+    pd3.Update()
 
     input_pds.append(pd3)
     del pd
@@ -391,7 +401,7 @@ if not os.path.exists(connectivity_folder):
     print "<wm_cluster_atlas.py> Connectivity folder", connectivity_folder, "does not exist, creating it."
     os.makedirs(connectivity_folder)
 
-connectivity = connectivity_constraints._by_two_endpoints(input_data, connectivity_folder)
+connectivity = connectivity_constraints._by_two_endpoints(input_data, connectivity_folder, subject_fiber_list)
 
 #-----------------
 # Run clustering

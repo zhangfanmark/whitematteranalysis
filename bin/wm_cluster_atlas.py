@@ -99,7 +99,7 @@ parser.add_argument(
     '-advanced_only_force_pos_def_off', action='store_true', dest="flag_pos_def_off",
     help='(Advanced parameter for testing only.) Turn off replacing A matrix by a close positive definite matrix.')
 parser.add_argument(
-    '-advanced_only_outlier_std', action='store', dest="outlierStandardDeviation", type=float, default=4.0,
+    '-advanced_only_outlier_std', action='store', dest="outlierStandardDeviation", type=float, default=100.0,
     help='(Advanced parameter that probably should not be changed.) Before clustering, reject any fiber outliers whose total fiber probability is more than this number of standard deviations below the mean. Then, on the next iteration, the clustering will be re-run without being affected by the outlier fibers. The default is 4.0 standard deviations. For more strict rejection, enter a smaller number such as 3.0. To turn off outlier rejection, enter a large number such as 100. This total probability is estimated in an approximate way by estimating the row sum of the affinity matrix using the Nystrom method, so its function is to remove any extreme outliers such as fibers outside the brain. Probably it is not necessary to change this value.')
 parser.add_argument(
     '-advanced_only_outlier_sigma', action='store', dest="outlierSigma", type=float, default=20.0,

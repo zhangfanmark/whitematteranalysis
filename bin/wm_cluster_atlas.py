@@ -342,52 +342,57 @@ readme_file.write(outstr)
 readme_file.close()
 
 
-# read in data
-input_pds = list()
-for fname, subject_idx in zip(input_polydatas, range(number_of_subjects)):
-    # read data
-    print "<wm_cluster_atlas.py> Reading input file:", fname
-    pd = wma.io.read_polydata(fname)
-    # preprocessing step: minimum length
-    #print "<wm_cluster_atlas.py> Preprocessing by length:", fiber_length, "mm."
-    pd2 = wma.filter.preprocess(pd, fiber_length,preserve_point_data=True,preserve_cell_data=True,verbose=verbose)
+if not os.path.exists(os.path.join(outdir, 'input_data.vtp')):
+    # read in data
+    input_pds = list()
+    for fname, subject_idx in zip(input_polydatas, range(number_of_subjects)):
+        # read data
+        print "<wm_cluster_atlas.py> Reading input file:", fname
+        pd = wma.io.read_polydata(fname)
+        # preprocessing step: minimum length
+        #print "<wm_cluster_atlas.py> Preprocessing by length:", fiber_length, "mm."
+        pd2 = wma.filter.preprocess(pd, fiber_length,preserve_point_data=True,preserve_cell_data=True,verbose=verbose)
 
-    # preprocessing step: fibers to analyze
-    if number_of_fibers_per_subject is not None:
-        print "<wm_cluster_atlas.py> Downsampling to", number_of_fibers_per_subject, "fibers from",  pd2.GetNumberOfLines(),"fibers over length", fiber_length, "."
-        pd3 = wma.filter.downsample(pd2, number_of_fibers_per_subject, preserve_point_data=True, preserve_cell_data=True, verbose=verbose, random_seed=random_seed)
-        if pd3.GetNumberOfLines() != number_of_fibers_per_subject:
-            print "<wm_cluster_atlas.py> Fibers found:", pd3.GetNumberOfLines(), "Fibers requested:", number_of_fibers_per_subject
-            print "\n<wm_cluster_atlas.py> ERROR: too few fibers over length threshold in subject:", fname
-            exit()
-    else:
-        pd3 = pd2
+        # preprocessing step: fibers to analyze
+        if number_of_fibers_per_subject is not None:
+            print "<wm_cluster_atlas.py> Downsampling to", number_of_fibers_per_subject, "fibers from",  pd2.GetNumberOfLines(),"fibers over length", fiber_length, "."
+            pd3 = wma.filter.downsample(pd2, number_of_fibers_per_subject, preserve_point_data=True, preserve_cell_data=True, verbose=verbose, random_seed=random_seed)
+            if pd3.GetNumberOfLines() != number_of_fibers_per_subject:
+                print "<wm_cluster_atlas.py> Fibers found:", pd3.GetNumberOfLines(), "Fibers requested:", number_of_fibers_per_subject
+                print "\n<wm_cluster_atlas.py> ERROR: too few fibers over length threshold in subject:", fname
+                exit()
+        else:
+            pd3 = pd2
 
-    # Add an array in PointData to for subject index
-    vtk_array = vtk.vtkIntArray()
-    vtk_array.SetName('subject_idx')
-    for p_idx in range(0, pd3.GetNumberOfPoints()):
-        vtk_array.InsertNextTuple1(int(subject_idx + 1))
+        # Add an array in PointData to for subject index
+        vtk_array = vtk.vtkIntArray()
+        vtk_array.SetName('subject_idx')
+        for p_idx in range(0, pd3.GetNumberOfPoints()):
+            vtk_array.InsertNextTuple1(int(subject_idx + 1))
 
-    pd3.GetPointData().AddArray(vtk_array)
-    pd3.Update()
+        pd3.GetPointData().AddArray(vtk_array)
+        pd3.Update()
 
-    input_pds.append(pd3)
-    del pd
-    del pd2
-    # safe because list has a reference to pd3
-    del pd3
+        input_pds.append(pd3)
+        del pd
+        del pd2
+        # safe because list has a reference to pd3
+        del pd3
 
-# append into one polydata object for clustering
-appender = vtk.vtkAppendPolyData()
-for pd in input_pds:
-    if (vtk.vtkVersion().GetVTKMajorVersion() >= 6.0):
-        appender.AddInputData(pd)
-    else:
-        appender.AddInput(pd)
-appender.Update()
-input_data = appender.GetOutput()
-del input_pds
+    # append into one polydata object for clustering
+    appender = vtk.vtkAppendPolyData()
+    for pd in input_pds:
+        if (vtk.vtkVersion().GetVTKMajorVersion() >= 6.0):
+            appender.AddInputData(pd)
+        else:
+            appender.AddInput(pd)
+    appender.Update()
+    input_data = appender.GetOutput()
+    del input_pds
+
+    wma.io.write_polydata(input_data, os.path.join(outdir, 'input_data.vtp'))
+else:
+    input_data = wma.io.read_polydata(os.path.join(outdir, 'input_data.vtp'))
 
 # figure out which subject each fiber was from in the input to the clustering
 subject_fiber_list = list()

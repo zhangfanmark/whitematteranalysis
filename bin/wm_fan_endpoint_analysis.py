@@ -28,6 +28,9 @@ parser.add_argument(
     'inputDirectory',
     help='Directory of the subject-specific fiber clustering results.')
 parser.add_argument(
+    'outputDirectory',
+    help='The output directory will be created if it does not exist.')
+parser.add_argument(
     'regionList', type=int, nargs='+',
     help='One or two regions to be analyzed, such as 8 1024')
 parser.add_argument(
@@ -48,6 +51,11 @@ args = parser.parse_args()
 if not os.path.isdir(args.inputDirectory):
     print "Error: Input directory", args.inputDirectory, "does not exist."
     exit()
+
+outdir = args.outputDirectory
+if not os.path.exists(outdir):
+    print "Output directory", outdir, "does not exist, creating it."
+    os.makedirs(outdir)
 
 region_list = args.regionList
 
@@ -295,8 +303,8 @@ for c_idx in range(num_clusters):
     ep_2_label_per_cluster_final = result_csv[c_idx + 1, 3]
     ep_2_label_per_cluster_final_percent = result_csv[c_idx + 1, 4]
 
-    print "cluster_%05d:  %8d (%10f) %8d (%10f)" % (c_idx + 1, ep_1_label_per_cluster_final, ep_1_label_per_cluster_final_percent, ep_2_label_per_cluster_final,
-          ep_2_label_per_cluster_final_percent)
+    # print "cluster_%05d:  %8d (%10f) %8d (%10f)" % (c_idx + 1, ep_1_label_per_cluster_final, ep_1_label_per_cluster_final_percent, ep_2_label_per_cluster_final,
+    #       ep_2_label_per_cluster_final_percent)
 
     if len(region_list) == 1:
         if ep_1_label_per_cluster_final == region_list[0] or ep_2_label_per_cluster_final == region_list[0]:
@@ -336,7 +344,7 @@ if len(result_cluster_list) > 0:
         idx += 1
     colors = numpy.array(colors)
 
-    wma.mrml.write(cluster_polydatas, colors, os.path.join(args.inputDirectory, mrml_filename), ratio=1.0)
+    wma.mrml.write(cluster_polydatas, colors, os.path.join(outdir, mrml_filename), ratio=1.0)
 
     if flag_cp_mrml:
         print 'Not yet implemented.'

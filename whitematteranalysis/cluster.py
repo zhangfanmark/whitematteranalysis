@@ -191,7 +191,8 @@ def spectral(input_polydata, number_of_clusters=200,
              pos_def_approx=True,
              bilateral=False,
              centroid_finder='K-means',
-             connectivity=None):
+             connectivity=None,
+             endpoint_regions=None):
 
     """ Spectral clustering based on pairwise fiber affinity matrix.
 
@@ -525,21 +526,50 @@ def spectral(input_polydata, number_of_clusters=200,
                 num_centroids = num_centroids + group_number_of_clusters
 
             centroids = numpy.concatenate(centroids)
+            atlas.centroids = centroids
+            cluster_idx = cluster_metric
+        elif endpoint_regions is not None:
+
+            ep_percentages_mean = []
+            ep_percentages_std = []
+            for n_clusters in range(500, 5000, 100):
+                centroids, cluster_metric = scipy.cluster.vq.kmeans2(embed, n_clusters, minit='points')
+
+                ep_percentages_per_clustering = []
+                cluster_indices = range(n_clusters)
+                for cidx in cluster_indices:
+                    cluster_mask = (cluster_metric == cidx)
+                    endpoint_regions_per_cluster = endpoint_regions[cluster_mask]
+                    num_fibers = len(endpoint_regions_per_cluster)
+
+                    all_endpoint_regions = []
+                    for ep in endpoint_regions_per_cluster:
+                        all_endpoint_regions.append(ep[0])
+                        all_endpoint_regions.append(ep[1])
+
+                    ep_label_occurrence = numpy.bincount(all_endpoint_regions)
+                    top_two_labels = numpy.argsort(ep_label_occurrence)[-2:]
+
+                    ep_percentages_per_clustering.append(sum(ep_label_occurrence[top_two_labels] / float(num_fibers)))
+
+                ep_percentages_mean.append(numpy.mean(ep_percentages_per_clustering))
+                ep_percentages_std.append(numpy.std(ep_percentages_per_clustering))
+
+            print ep_percentages_mean
+            print ep_percentages_std
+
+            exit()
+
         else:
             # without constraint
             centroids, cluster_metric = scipy.cluster.vq.kmeans2(embed, number_of_clusters, minit='points')
-
-        # sort centroids by first eigenvector order
-        # centroid_order = numpy.argsort(centroids[:,0])
-        # sort centroids according to colormap and save them in this order in atlas
-        # color = _embed_to_rgb(centroids)
-        # centroid_order = render.argsort_by_jet_lookup_table(color)
-        atlas.centroids = centroids#[centroid_order,:]
-
-        # cluster_idx, dist = scipy.cluster.vq.vq(embed, atlas.centroids) # This can assign fiber to the cluster to another group, so use cluster_metric
-        # print '[cluster_idx == cluster_metric]', numpy.sum(cluster_idx == cluster_metric), len(cluster_metric)
-
-        cluster_idx = cluster_metric
+            # sort centroids by first eigenvector order
+            # centroid_order = numpy.argsort(centroids[:,0])
+            # sort centroids according to colormap and save them in this order in atlas
+            color = _embed_to_rgb(centroids)
+            centroid_order = render.argsort_by_jet_lookup_table(color)
+            atlas.centroids = centroids[centroid_order, :]
+            cluster_idx, dist = scipy.cluster.vq.vq(embed, atlas.centroids)
 
         #print "<cluster.py> Distortion metric:", cluster_metric
         if 0:

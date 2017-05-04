@@ -406,7 +406,7 @@ if not os.path.exists(connectivity_folder):
     print "<wm_cluster_atlas.py> Connectivity folder", connectivity_folder, "does not exist, creating it."
     os.makedirs(connectivity_folder)
 
-connectivity = connectivity_constraints._by_two_endpoints(input_data, connectivity_folder, subject_fiber_list)
+(connectivity, endpoint_regions) = connectivity_constraints._by_two_endpoints(input_data, connectivity_folder, subject_fiber_list)
 
 #-----------------
 # Run clustering
@@ -460,7 +460,8 @@ for iteration in range(cluster_iterations):
                                  pos_def_approx=pos_def_approx, \
                                  bilateral=bilateral,
                                  centroid_finder=args.centroid_finder,
-                                 connectivity=connectivity)
+                                 connectivity=None,
+                                 endpoint_regions=endpoint_regions)
 
     # If any fibers were rejected, delete the corresponding entry in this list
     subject_fiber_list = numpy.delete(subject_fiber_list, reject_idx)

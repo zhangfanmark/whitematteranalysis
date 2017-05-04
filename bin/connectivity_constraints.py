@@ -23,7 +23,7 @@ def get_label_array(input_data):
 
     return label_array
 
-def _by_two_endpoints(input_data, outdir, subject_fiber_list, output_fibers_per_group=True):
+def _by_two_endpoints(input_data, outdir, subject_fiber_list, output_fibers_per_group=False):
     label_array = get_label_array(input_data)
 
     num_fibers = input_data.GetNumberOfLines()
@@ -135,7 +135,7 @@ def _by_two_endpoints(input_data, outdir, subject_fiber_list, output_fibers_per_
     #connectivity = scipy.sparse.csr_matrix(connectivity)
     connectivity = group_label_per_fiber
 
-    return connectivity
+    return (connectivity, endpoint_regions)
 
 def _by_one_endpoint(input_data, outdir):
 

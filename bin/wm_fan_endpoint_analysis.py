@@ -57,9 +57,7 @@ if not os.path.exists(outdir):
     print "Output directory", outdir, "does not exist, creating it."
     os.makedirs(outdir)
 
-region_list = args.regionList
-
-if len(region_list) > 2:
+if len(args.regionList) > 2:
     print " At most two regions can analyzed."
     exit()
 
@@ -292,61 +290,80 @@ result_csv = numpy.genfromtxt(output_file_path, delimiter='\t')
 num_clusters = result_csv.shape[0] - 1
 print '\n<EndPointAnalysis> Number of clusters:', num_clusters
 
-result_cluster_list = []
-print '\n<EndPointAnalysis> The endpoint regions connected per cluster, calculated across all subjects.'
-print '  The percentage shows how many subjects have their endpoints connecting the detected region.'
-print "Cluster index:  region-1 (percentage)  region-2 (percentage)"
-print "------------------------------------------------------------"
-for c_idx in range(num_clusters):
-    ep_1_label_per_cluster_final = result_csv[c_idx + 1, 1]
-    ep_1_label_per_cluster_final_percent = result_csv[c_idx + 1, 2]
-    ep_2_label_per_cluster_final = result_csv[c_idx + 1, 3]
-    ep_2_label_per_cluster_final_percent = result_csv[c_idx + 1, 4]
+region_list_all = []
+if len(args.regionList) == 1 and args.regionList[0] == -1:
+    all_region_pairs = []
+    for c_idx in range(num_clusters):
+        ep_1_label_per_cluster_final = result_csv[c_idx + 1, 1]
+        ep_2_label_per_cluster_final = result_csv[c_idx + 1, 3]
 
-    # print "cluster_%05d:  %8d (%10f) %8d (%10f)" % (c_idx + 1, ep_1_label_per_cluster_final, ep_1_label_per_cluster_final_percent, ep_2_label_per_cluster_final,
-    #       ep_2_label_per_cluster_final_percent)
+        if ep_1_label_per_cluster_final > ep_2_label_per_cluster_final:
+            all_region_pairs.append([ep_2_label_per_cluster_final, ep_1_label_per_cluster_final])
+        else:
+            all_region_pairs.append([ep_1_label_per_cluster_final, ep_2_label_per_cluster_final])
 
-    if len(region_list) == 1:
-        if ep_1_label_per_cluster_final == region_list[0] or ep_2_label_per_cluster_final == region_list[0]:
-            result_cluster_list.append(c_idx)
-    elif len(region_list)==2:
-        if (ep_1_label_per_cluster_final == region_list[0] and ep_2_label_per_cluster_final == region_list[1]) or \
-           (ep_1_label_per_cluster_final == region_list[1] and ep_2_label_per_cluster_final == region_list[0]):
-            result_cluster_list.append(c_idx)
+    region_list_all =  numpy.array([numpy.array(x) for x in set(tuple(x) for x in all_region_pairs)])
+else:
+    region_list_all.append(args.regionList)
 
-print '\n<EndPointAnalysis> Find', len(result_cluster_list), 'cluster(s) connecting region(s)', region_list
 
-if len(result_cluster_list) > 0:
+for region_list in region_list_all:
+    region_list = region_list.tolist()
+    result_cluster_list = []
+    print '\n<EndPointAnalysis> The endpoint regions connected per cluster, calculated across all subjects.'
+    print '  The percentage shows how many subjects have their endpoints connecting the detected region.'
+    print "Cluster index:  region-1 (percentage)  region-2 (percentage)"
+    print "------------------------------------------------------------"
+    for c_idx in range(num_clusters):
+        ep_1_label_per_cluster_final = result_csv[c_idx + 1, 1]
+        ep_1_label_per_cluster_final_percent = result_csv[c_idx + 1, 2]
+        ep_2_label_per_cluster_final = result_csv[c_idx + 1, 3]
+        ep_2_label_per_cluster_final_percent = result_csv[c_idx + 1, 4]
 
-    outstr = ' - cluster_'
-    for result_cluster in result_cluster_list:
-        outstr = outstr + '{0:05d}'.format(result_cluster+1) + ', '
-    print outstr[:-2]
+        # print "cluster_%05d:  %8d (%10f) %8d (%10f)" % (c_idx + 1, ep_1_label_per_cluster_final, ep_1_label_per_cluster_final_percent, ep_2_label_per_cluster_final,
+        #       ep_2_label_per_cluster_final_percent)
 
-    mrml_filename = "EPA_clusters_in_"+hemi+"_connecting_region_" + str(region_list).replace(', ', '-') + ".mrml"
-    print "\n<EndPointAnalysis> A mrml file to display the result cluster(s) is generated as", mrml_filename
-    print '  Copy this file to a folder containing the result and load it to 3D Slicer to display the fiber clusters.'
+        if len(region_list) == 1:
+            if ep_1_label_per_cluster_final == region_list[0] or ep_2_label_per_cluster_final == region_list[0]:
+                result_cluster_list.append(c_idx)
+        elif len(region_list)==2:
+            if (ep_1_label_per_cluster_final == region_list[0] and ep_2_label_per_cluster_final == region_list[1]) or \
+               (ep_1_label_per_cluster_final == region_list[1] and ep_2_label_per_cluster_final == region_list[0]):
+                result_cluster_list.append(c_idx)
 
-    cluster_polydatas = []
-    for c_idx in result_cluster_list:
-        cluster_polydatas.append("cluster_"+str(c_idx+1).zfill(5)+".vtp")
+    print '\n<EndPointAnalysis> Find', len(result_cluster_list), 'cluster(s) connecting region(s)', region_list
 
-    number_of_files = len(cluster_polydatas)
-    step = int(100 * 255.0 / (number_of_files))
-    R = numpy.array(range(0, 100 * 255 + 1, step)) / 100.0
-    G = numpy.abs(range(100 * -127, 100 * 128 + 1, step)) * 2.0 / 100.0
-    B = numpy.array(range(100 * 255 + 1, 0, -step)) / 100.0
+    if len(result_cluster_list) > 0:
 
-    colors = list()
-    idx = 0
-    for pd in cluster_polydatas:
-        colors.append([R[idx], G[idx], B[idx]])
-        idx += 1
-    colors = numpy.array(colors)
+        outstr = ' - cluster_'
+        for result_cluster in result_cluster_list:
+            outstr = outstr + '{0:05d}'.format(result_cluster+1) + ', '
+        print outstr[:-2]
 
-    wma.mrml.write(cluster_polydatas, colors, os.path.join(outdir, mrml_filename), ratio=1.0)
+        mrml_filename = "EPA_clusters_in_"+hemi+"_connecting_region_" + str(region_list).replace(', ', '-') + ".mrml"
+        print "\n<EndPointAnalysis> A mrml file to display the result cluster(s) is generated as", mrml_filename
+        print '  Copy this file to a folder containing the result and load it to 3D Slicer to display the fiber clusters.'
 
-    if flag_cp_mrml:
-        print 'Not yet implemented.'
+        cluster_polydatas = []
+        for c_idx in result_cluster_list:
+            cluster_polydatas.append("cluster_"+str(c_idx+1).zfill(5)+".vtp")
+
+        number_of_files = len(cluster_polydatas)
+        step = int(100 * 255.0 / (number_of_files))
+        R = numpy.array(range(0, 100 * 255 + 1, step)) / 100.0
+        G = numpy.abs(range(100 * -127, 100 * 128 + 1, step)) * 2.0 / 100.0
+        B = numpy.array(range(100 * 255 + 1, 0, -step)) / 100.0
+
+        colors = list()
+        idx = 0
+        for pd in cluster_polydatas:
+            colors.append([R[idx], G[idx], B[idx]])
+            idx += 1
+        colors = numpy.array(colors)
+
+        wma.mrml.write(cluster_polydatas, colors, os.path.join(outdir, mrml_filename), ratio=1.0)
+
+        if flag_cp_mrml:
+            print 'Not yet implemented.'
 
 print '\n<EndPointAnalysis> Done! \n'

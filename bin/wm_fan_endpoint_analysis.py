@@ -304,7 +304,7 @@ if len(args.regionList) == 1 and args.regionList[0] == -1:
 
     region_list_all =  numpy.array([numpy.array(x) for x in set(tuple(x) for x in all_region_pairs)])
 else:
-    region_list_all.append(args.regionList)
+    region_list_all.append(numpy.array(args.regionList))
 
 
 for region_list in region_list_all:
@@ -340,7 +340,7 @@ for region_list in region_list_all:
             outstr = outstr + '{0:05d}'.format(result_cluster+1) + ', '
         print outstr[:-2]
 
-        mrml_filename = "EPA_clusters_in_"+hemi+"_connecting_region_" + str(region_list).replace(', ', '-') + ".mrml"
+        mrml_filename = "EPA_clusters_in_"+hemi+"_connecting_region_" + str(region_list).replace(', ', '-') + "_n"+str(len(result_cluster_list))+".mrml"
         print "\n<EndPointAnalysis> A mrml file to display the result cluster(s) is generated as", mrml_filename
         print '  Copy this file to a folder containing the result and load it to 3D Slicer to display the fiber clusters.'
 

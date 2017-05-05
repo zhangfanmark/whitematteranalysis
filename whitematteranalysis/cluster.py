@@ -260,17 +260,20 @@ def spectral(input_polydata, number_of_clusters=200,
         else:
             landmarks_m = landmarks_n = None
 
+        print '<cluster.py> Computing A'
         # Calculate fiber similarities
         A = \
             _pairwise_similarity_matrix(polydata_m, threshold,
                                         sigma, number_of_jobs, landmarks_m, distance_method, bilateral)
+
+        print '<cluster.py> Computing B'
         B = \
             _rectangular_similarity_matrix(polydata_n, polydata_m, threshold,
                                            sigma, number_of_jobs, landmarks_n, landmarks_m, distance_method, bilateral)
 
         # sanity check
-        print "<cluster.py> Range of values in A:", numpy.min(A), numpy.max(A)
-        print "<cluster.py> Range of values in B:", numpy.min(B), numpy.max(B)
+        print "<cluster.py> Range of values in A:", numpy.min(A), numpy.max(A), A.shape
+        print "<cluster.py> Range of values in B:", numpy.min(B), numpy.max(B), B.shape
         
     else:
         # Calculate all fiber similarities
@@ -429,6 +432,10 @@ def spectral(input_polydata, number_of_clusters=200,
             B = \
                 numpy.multiply(B, numpy.outer(dhat[0:sz], dhat[sz:].T))
 
+            # sanity check
+            print "<cluster.py> Range of values in A:", numpy.min(A), numpy.max(A), A.shape
+            print "<cluster.py> Range of values in B:", numpy.min(B), numpy.max(B), B.shape
+
         else:
             # normalized cuts normalization using row (same as column) sums
             row_sum = numpy.sum(A, axis=0)
@@ -494,9 +501,8 @@ def spectral(input_polydata, number_of_clusters=200,
         # information is first
         embed = embed[:, ::-1]
 
-    tmp = embed
-    print ' embed: range', numpy.min(tmp), 'to', numpy.max(tmp), \
-        ', shape:', tmp.shape, ', NaN #:', (numpy.isnan(tmp)).sum(), '/', tmp.shape[0] * tmp.shape[1]
+    print "<cluster.py> Range of values in embed:", numpy.min(embed), numpy.max(embed), embed.shape,
+    print ', NaN #:', (numpy.isnan(embed)).sum(), '/', embed.shape[0] * embed.shape[1]
 
     # Default is always k-means. Other code is just left for testing. Did not improve results.
     #centroid_finder = 'AffinityPropagation'
@@ -742,26 +748,67 @@ def _rectangular_distance_matrix(input_polydata_n, input_polydata_m, threshold,
         
         fiber_array_n = fibers.FiberArray()
         fiber_array_n.convert_from_polydata(input_polydata_n, points_per_fiber=15)
+
         fiber_array_m = fibers.FiberArray()
         fiber_array_m.convert_from_polydata(input_polydata_m, points_per_fiber=15)
 
-        if landmarks_n is None:
-            landmarks_n = numpy.zeros((fiber_array_n.number_of_fibers,3))
-    
-        # pairwise distance matrix
-        all_fibers_n = range(0, fiber_array_n.number_of_fibers)
+        len_array_n = fiber_array_n.number_of_fibers
+        len_array_m = fiber_array_m.number_of_fibers
 
-        distances = Parallel(n_jobs=number_of_jobs,
-                             verbose=0)(
-            delayed(similarity.fiber_distance)(
-                fiber_array_n.get_fiber(lidx),
-                fiber_array_m,
-                threshold, distance_method=distance_method,
-                fiber_landmarks=landmarks_n[lidx,:], 
-                landmarks=landmarks_m, bilateral=bilateral)
-            for lidx in all_fibers_n)
+        if False: #len_array_n > 2 * len_array_m:
+            if landmarks_n is None:
+                landmarks_n = numpy.zeros((fiber_array_n.number_of_fibers,3))
 
-        distances = numpy.array(distances).T
+            # pairwise distance matrix
+            all_fibers_n = range(0, fiber_array_n.number_of_fibers)
+
+            distances_ = Parallel(n_jobs=number_of_jobs,
+                                 verbose=0)(
+                delayed(similarity.fiber_distance)(
+                    fiber_array_n.get_fiber(lidx),
+                    fiber_array_m,
+                    threshold, distance_method=distance_method,
+                    fiber_landmarks=landmarks_n[lidx,:],
+                    landmarks=landmarks_m, bilateral=bilateral)
+                for lidx in all_fibers_n)
+
+            distances_ = numpy.array(distances_).T
+
+        else:
+            # array_n is the one not in Nystorm sample, which could be very large.
+            # So, here we divide into multiple small polydata to reduce memory usage
+
+            distances = numpy.zeros((len_array_n, len_array_m))
+            masks = numpy.divide(range(len_array_n), len_array_m)
+            for m in numpy.unique(masks):
+                print m, 'in', numpy.max(masks)
+                mask = (masks == m)
+                input_polydata_n_sub = filter.mask(input_polydata_n, mask, verbose=False)
+
+                fiber_array_n_sub = fibers.FiberArray()
+                fiber_array_n_sub.convert_from_polydata(input_polydata_n_sub, points_per_fiber=15)
+
+                if landmarks_n is None:
+                    landmarks_n_sub = numpy.zeros((fiber_array_n_sub.number_of_fibers, 3))
+                else:
+                    landmarks_n_sub = landmarks_n[mask, :]
+
+                # pairwise distance matrix
+                all_fibers_n_sub = range(0, fiber_array_n_sub.number_of_fibers)
+
+                distances_n_sub = Parallel(n_jobs=number_of_jobs, verbose=0, temp_folder='/data/lmi/projects/.tmp')(
+                    delayed(similarity.fiber_distance)(
+                        fiber_array_n_sub.get_fiber(lidx),
+                        fiber_array_m,
+                        threshold, distance_method=distance_method,
+                        fiber_landmarks=landmarks_n_sub[lidx, :],
+                        landmarks=landmarks_m, bilateral=bilateral)
+                    for lidx in all_fibers_n_sub)
+
+                distances_n_sub = numpy.array(distances_n_sub)
+                distances[mask, :] = distances_n_sub
+
+            distances = distances.T
 
     return distances
 

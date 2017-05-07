@@ -101,6 +101,11 @@ def pipeline(inputPolyDatas, sidx, args):
     msg = "**Starting subject:", subjectID
     print(id_msg + msg)
 
+    fname = os.path.join(args.outputDirectory, subjectID + '_pp.vtp')
+    if os.path.exists(fname):
+        print 'Already processed!'
+        return
+
     # read input vtk data
     # -------------------
     msg = "**Reading input:", subjectID
@@ -146,7 +151,6 @@ def pipeline(inputPolyDatas, sidx, args):
     msg = "**Writing output data for subject:", subjectID
     print id_msg, msg
 
-    fname = os.path.join(args.outputDirectory, subjectID+'_pp.vtp')
     try:
         print "Writing output polydata", fname, "..."
         wma.io.write_polydata(wm3, fname)

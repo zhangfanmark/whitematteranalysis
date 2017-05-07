@@ -260,12 +260,11 @@ def spectral(input_polydata, number_of_clusters=200,
         else:
             landmarks_m = landmarks_n = None
 
-        print '<cluster.py> Computing A'
         # Calculate fiber similarities
+        print '<cluster.py> Computing A'
         A = \
             _pairwise_similarity_matrix(polydata_m, threshold,
                                         sigma, number_of_jobs, landmarks_m, distance_method, bilateral)
-
         print '<cluster.py> Computing B'
         B = \
             _rectangular_similarity_matrix(polydata_n, polydata_m, threshold,
@@ -538,7 +537,7 @@ def spectral(input_polydata, number_of_clusters=200,
 
             ep_percentages_mean = []
             ep_percentages_std = []
-            for n_clusters in range(500, 5000, 100):
+            for n_clusters in range(2000, 10000, 500):
                 centroids, cluster_metric = scipy.cluster.vq.kmeans2(embed, n_clusters, minit='points')
 
                 ep_percentages_per_clustering = []
@@ -731,12 +730,9 @@ def _rectangular_distance_matrix(input_polydata_n, input_polydata_m, threshold,
 
     """ Internal convenience function available to clustering
     routines.
-
     Computes distance matrix (nxm) for all n+m fibers in input
     polydata. each fiber in input_polydata_n is compared to each fiber
     in input_polydata_m.
-
-
     """
 
     if distance_method == 'Frechet':
@@ -745,25 +741,20 @@ def _rectangular_distance_matrix(input_polydata_n, input_polydata_m, threshold,
         distances = numpy.array(distances)
 
     else:
-        
-        fiber_array_n = fibers.FiberArray()
-        fiber_array_n.convert_from_polydata(input_polydata_n, points_per_fiber=15)
 
-        fiber_array_m = fibers.FiberArray()
-        fiber_array_m.convert_from_polydata(input_polydata_m, points_per_fiber=15)
+        if False:
 
-        len_array_n = fiber_array_n.number_of_fibers
-        len_array_m = fiber_array_m.number_of_fibers
+            fiber_array_n = fibers.FiberArray()
+            fiber_array_n.convert_from_polydata(input_polydata_n, points_per_fiber=15)
+            fiber_array_m = fibers.FiberArray()
+            fiber_array_m.convert_from_polydata(input_polydata_m, points_per_fiber=15)
 
-        if False: #len_array_n > 2 * len_array_m:
             if landmarks_n is None:
-                landmarks_n = numpy.zeros((fiber_array_n.number_of_fibers,3))
-
+                landmarks_n = numpy.zeros((fiber_array_n.number_of_fibers, 3))
             # pairwise distance matrix
             all_fibers_n = range(0, fiber_array_n.number_of_fibers)
 
-            distances_ = Parallel(n_jobs=number_of_jobs,
-                                 verbose=0)(
+            distances_ = Parallel(n_jobs=number_of_jobs, verbose=0)(
                 delayed(similarity.fiber_distance)(
                     fiber_array_n.get_fiber(lidx),
                     fiber_array_m,
@@ -773,42 +764,52 @@ def _rectangular_distance_matrix(input_polydata_n, input_polydata_m, threshold,
                 for lidx in all_fibers_n)
 
             distances_ = numpy.array(distances_).T
-
         else:
-            # array_n is the one not in Nystorm sample, which could be very large.
-            # So, here we divide into multiple small polydata to reduce memory usage
+            num_fibers_m = input_polydata_m.GetNumberOfLines()
+            num_fibers_n = input_polydata_n.GetNumberOfLines()
 
-            distances = numpy.zeros((len_array_n, len_array_m))
-            masks = numpy.divide(range(len_array_n), len_array_m)
-            for m in numpy.unique(masks):
-                print m, 'in', numpy.max(masks)
-                mask = (masks == m)
-                input_polydata_n_sub = filter.mask(input_polydata_n, mask, verbose=False)
+            masks_m = numpy.divide(range(num_fibers_m), num_fibers_m / 100)
+            masks_n = numpy.divide(range(num_fibers_n), num_fibers_n / 1000)
 
-                fiber_array_n_sub = fibers.FiberArray()
-                fiber_array_n_sub.convert_from_polydata(input_polydata_n_sub, points_per_fiber=15)
+            pd_sub_m_list = mask_all_clusters(input_polydata_m, masks_m, numpy.max(masks_m) + 1, color=None,
+                                         preserve_point_data=False,preserve_cell_data=False, verbose=False)
+            pd_sub_n_list = mask_all_clusters(input_polydata_n, masks_n, numpy.max(masks_n) + 1, color=None,
+                                         preserve_point_data=False, preserve_cell_data=False, verbose=False)
 
-                if landmarks_n is None:
-                    landmarks_n_sub = numpy.zeros((fiber_array_n_sub.number_of_fibers, 3))
-                else:
-                    landmarks_n_sub = landmarks_n[mask, :]
+            distances = numpy.zeros((num_fibers_m, num_fibers_n))
+            for m_m in numpy.unique(masks_m):
+                print ' -Divide ploydata m and n:', m_m, 'in', numpy.max(masks_m)
 
-                # pairwise distance matrix
-                all_fibers_n_sub = range(0, fiber_array_n_sub.number_of_fibers)
+                mask_m = (masks_m == m_m)
+                input_polydata_m_sub = pd_sub_m_list[m_m]
 
-                distances_n_sub = Parallel(n_jobs=number_of_jobs, verbose=0, temp_folder='/data/lmi/projects/.tmp')(
-                    delayed(similarity.fiber_distance)(
-                        fiber_array_n_sub.get_fiber(lidx),
-                        fiber_array_m,
-                        threshold, distance_method=distance_method,
-                        fiber_landmarks=landmarks_n_sub[lidx, :],
-                        landmarks=landmarks_m, bilateral=bilateral)
-                    for lidx in all_fibers_n_sub)
+                fiber_array_m_sub = fibers.FiberArray()
+                fiber_array_m_sub.convert_from_polydata(input_polydata_m_sub, points_per_fiber=15)
 
-                distances_n_sub = numpy.array(distances_n_sub)
-                distances[mask, :] = distances_n_sub
+                distances_sub_m = numpy.zeros((fiber_array_m_sub.number_of_fibers, num_fibers_n))
+                for m_n in numpy.unique(masks_n):
 
-            distances = distances.T
+                    mask_n = (masks_n == m_n)
+                    input_polydata_n_sub = pd_sub_n_list[m_n]
+
+                    fiber_array_n_sub = fibers.FiberArray()
+                    fiber_array_n_sub.convert_from_polydata(input_polydata_n_sub, points_per_fiber=15)
+
+                    all_fibers_n_sub = range(0, fiber_array_n_sub.number_of_fibers)
+
+                    distances_sub_m_n = Parallel(n_jobs=number_of_jobs, verbose=0)(
+                        delayed(similarity.fiber_distance)(
+                            fiber_array_n_sub.get_fiber(lidx),
+                            fiber_array_m_sub,
+                            threshold, distance_method=distance_method,
+                            fiber_landmarks=None,
+                            landmarks=None, bilateral=bilateral)
+                        for lidx in all_fibers_n_sub)
+
+                    distances_sub_m_n = numpy.array(distances_sub_m_n).T
+                    distances_sub_m[:, mask_n] = distances_sub_m_n
+
+                distances[mask_m, :] = distances_sub_m
 
     return distances
 

@@ -129,7 +129,7 @@ if args.numberOfFibers is not None:
     print "fibers to analyze per subject: ", args.numberOfFibers
     number_of_fibers_per_subject = args.numberOfFibers
 else:
-    number_of_fibers_per_subject = 2000
+    number_of_fibers_per_subject = None
     print "fibers to analyze per subject: Setting to default", number_of_fibers_per_subject
 
 fiber_length = args.fiberLength
@@ -284,8 +284,6 @@ if number_of_subjects < 1:
     print "\n<wm_cluster_atlas.py> Error: No .vtk or .vtp files were found in the input directory.\n"
     exit()
 
-total_number_of_fibers = number_of_fibers_per_subject * number_of_subjects
-
 print "Input number of subjects (number of vtk/vtp files): ", number_of_subjects
 print "==========================\n"
 print "<wm_cluster_atlas.py> Starting file I/O and computation."
@@ -341,7 +339,7 @@ for pd in input_polydatas:
 readme_file.write(outstr)
 readme_file.close()
 
-
+number_fibers_tmp = 0
 if not os.path.exists(os.path.join(outdir, 'input_data.vtp')):
     # read in data
     input_pds = list()
@@ -350,38 +348,43 @@ if not os.path.exists(os.path.join(outdir, 'input_data.vtp')):
         print "<wm_cluster_atlas.py> Reading input file:", fname
         pd = wma.io.read_polydata(fname)
 
-        if False:
-            # preprocessing step: minimum length
-            #print "<wm_cluster_atlas.py> Preprocessing by length:", fiber_length, "mm."
+        # preprocessing step: minimum length
+        #print "<wm_cluster_atlas.py> Preprocessing by length:", fiber_length, "mm."
+        if fiber_length is not None:
             pd2 = wma.filter.preprocess(pd, fiber_length,preserve_point_data=True,preserve_cell_data=True,verbose=verbose)
-
-            # preprocessing step: fibers to analyze
-            if number_of_fibers_per_subject is not None:
-                print "<wm_cluster_atlas.py> Downsampling to", number_of_fibers_per_subject, "fibers from",  pd2.GetNumberOfLines(),"fibers over length", fiber_length, "."
-                pd3 = wma.filter.downsample(pd2, number_of_fibers_per_subject, preserve_point_data=True, preserve_cell_data=True, verbose=verbose, random_seed=random_seed)
-                if pd3.GetNumberOfLines() != number_of_fibers_per_subject:
-                    print "<wm_cluster_atlas.py> Fibers found:", pd3.GetNumberOfLines(), "Fibers requested:", number_of_fibers_per_subject
-                    print "\n<wm_cluster_atlas.py> ERROR: too few fibers over length threshold in subject:", fname
-                    exit()
-            else:
-                pd3 = pd2
-
-            # Add an array in PointData to for subject index
-            vtk_array = vtk.vtkIntArray()
-            vtk_array.SetName('subject_idx')
-            for p_idx in range(0, pd3.GetNumberOfPoints()):
-                vtk_array.InsertNextTuple1(int(subject_idx + 1))
-
-            pd3.GetPointData().AddArray(vtk_array)
-            pd3.Update()
-
-            del pd2
         else:
-            pd3 = pd
+            pd2 = pd
+
+        # preprocessing step: fibers to analyze
+        if number_of_fibers_per_subject is not None:
+            print "<wm_cluster_atlas.py> Downsampling to", number_of_fibers_per_subject, "fibers from",  pd2.GetNumberOfLines(),"fibers over length", fiber_length, "."
+            pd3 = wma.filter.downsample(pd2, number_of_fibers_per_subject, preserve_point_data=True, preserve_cell_data=True, verbose=verbose, random_seed=random_seed)
+            if pd3.GetNumberOfLines() != number_of_fibers_per_subject:
+                print "<wm_cluster_atlas.py> Fibers found:", pd3.GetNumberOfLines(), "Fibers requested:", number_of_fibers_per_subject
+                print "\n<wm_cluster_atlas.py> ERROR: too few fibers over length threshold in subject:", fname
+                exit()
+        else:
+            pd3 = pd2
+
+        if number_fibers_tmp == 0:
+            number_fibers_tmp = pd3.GetNumberOfLines()
+        elif number_fibers_tmp != pd3.GetNumberOfLines():
+            print 'Error: each subject should have the same of fibers sampled.'
+            exit()
+
+        # Add an array in PointData to for subject index
+        vtk_array = vtk.vtkIntArray()
+        vtk_array.SetName('subject_idx')
+        for p_idx in range(0, pd3.GetNumberOfPoints()):
+            vtk_array.InsertNextTuple1(int(subject_idx + 1))
+
+        pd3.GetPointData().AddArray(vtk_array)
+        pd3.Update()
 
         input_pds.append(pd3)
         del pd
         # safe because list has a reference to pd3
+        del pd2
         del pd3
 
     # append into one polydata object for clustering
@@ -394,6 +397,8 @@ if not os.path.exists(os.path.join(outdir, 'input_data.vtp')):
     appender.Update()
     input_data = appender.GetOutput()
     del input_pds
+
+    number_of_fibers_per_subject = number_fibers_tmp
 
     wma.io.write_polydata(input_data, os.path.join(outdir, 'input_data.vtp'))
 else:
@@ -416,6 +421,7 @@ if not os.path.exists(connectivity_folder):
 #-----------------
 # Run clustering
 #-----------------
+total_number_of_fibers = number_of_fibers_per_subject * number_of_subjects
 
 # Check there are enough fibers for requested analysis
 if number_of_sampled_fibers >= input_data.GetNumberOfLines():
@@ -444,13 +450,13 @@ for iteration in range(cluster_iterations):
     dirname = "iteration_%05d" % (iteration)
     outdir_current = os.path.join(outdir, dirname)
 
-    numpy.random.seed(seed=1000)
     # Calculate indices of random sample for Nystrom method
     nystrom_mask = numpy.random.permutation(input_data.GetNumberOfLines()) < number_of_sampled_fibers
 
-    if len(connectivity) != input_data.GetNumberOfLines():
-        print 'Not the same'
-        exit()
+    if connectivity is not None:
+        if len(connectivity) != input_data.GetNumberOfLines():
+            print 'Not the same'
+            exit()
 
     # Run clustering on the polydata
     print '\n<wm_cluster_atlas.py> Starting clustering...'
@@ -467,7 +473,8 @@ for iteration in range(cluster_iterations):
                                  bilateral=bilateral,
                                  centroid_finder=args.centroid_finder,
                                  connectivity=None,
-                                 endpoint_regions=endpoint_regions)
+                                 endpoint_regions=endpoint_regions,
+                                 outdir=outdir)
 
     # If any fibers were rejected, delete the corresponding entry in this list
     subject_fiber_list = numpy.delete(subject_fiber_list, reject_idx)

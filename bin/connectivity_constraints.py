@@ -130,7 +130,7 @@ def _by_two_endpoints(input_data, outdir, subject_fiber_list, output_fibers_per_
     output_file.close()
 
     print '<EP region connectivity> Number of valid region pairs (groups) is', len(numpy.unique(group_label_per_fiber))
-    print '  Number of clusters (-k) should be set greater than', len(numpy.unique(group_label_per_fiber))
+    print '  Number of clusters (k) should be set greater than', len(numpy.unique(group_label_per_fiber))
 
     #connectivity = scipy.sparse.csr_matrix(connectivity)
     connectivity = group_label_per_fiber

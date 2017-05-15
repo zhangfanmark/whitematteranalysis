@@ -64,47 +64,66 @@ for c_comm_idx in range(num_clusters_comm):
     c_idx = int(comm_cluster_list[c_comm_idx].replace('cluster_', '')) - 1
     hemi_or_comm_list[c_idx] = 'comm'
 
+
+def region_of_one_cluster(region_per_subject_list, c_sub_idx, num_subjects, num_regions):
+    subject_region_matrix_of_one_cluster = numpy.zeros((num_subjects, num_regions))
+
+    for s_idx in range(num_subjects):
+        region_one_subject = region_per_subject_list[s_idx][c_sub_idx + 1, 1:]
+        region_one_subject = [float(r) for r in region_one_subject] # convert into float
+
+        if region_one_subject[0] == 0: # if cluster is empty
+            region_belong = []
+        else:
+            region_one_subject_percentage = numpy.divide(region_one_subject, region_one_subject[0])
+
+            if numpy.sum(region_one_subject_percentage[1:]) == 0: # if no WMQL result
+                region_belong = []
+            else:
+                region_belong = numpy.argsort(region_one_subject_percentage[1:])[-1] # select the top region the cluster belongs to
+
+        subject_region_matrix_of_one_cluster[s_idx, region_belong] = 1
+    #     print 's'+str(s_idx), region_belong,
+    # print ''
+
+    num_subjects_per_region = numpy.sum(subject_region_matrix_of_one_cluster, axis=0)
+    result_region_index = numpy.argsort(num_subjects_per_region)[-1]
+
+    if num_subjects_per_region[result_region_index] == 0:
+        result_region_index = None
+
+    return result_region_index
+
 print '\n<wm_cluster_wmql_region> Extracting WMQL regions: \n'
 for c_idx in range(num_clusters):
     cluster_name = 'cluster_{0:05d}'.format(c_idx+1)
-    print '<wm_cluster_wmql_region>', cluster_name, 'from', hemi_or_comm_list[c_idx]
 
     if hemi_or_comm_list[c_idx] == 'comm':
         continue
+        # need to update as multiple parcellation are given
         c_comm_idx = [i for i, s in enumerate(comm_cluster_list) if cluster_name in s][0]
 
-        subject_vs_region_one_cluster = numpy.zeros((num_subjects, num_regions+1))
-        for s_idx in range(num_subjects):
-            region_one_subject = region_per_subject_comm_list[s_idx][c_comm_idx+1, 1:]
-            region_one_subject = [float(r) for r in region_one_subject]
-            subject_vs_region_one_cluster[s_idx, :] = numpy.divide(region_one_subject, region_one_subject[0])
+        result_region_index_comm = region_of_one_cluster(region_per_subject_comm_list, c_comm_idx, num_subjects, num_regions)
+
+        if result_region_index_left is not None:
+            print region_list[result_region_index_left],
+        else:
+            print None,
 
     elif hemi_or_comm_list[c_idx] == 'hemi':
+        print '<wm_cluster_wmql_region>', cluster_name, 'from', hemi_or_comm_list[c_idx],
+
         c_hemi_idx = [i for i, s in enumerate(hemi_cluster_list) if cluster_name in s][0]
 
-        subject_vs_region_one_cluster = numpy.zeros((num_subjects, num_regions))
+        result_region_index_left = region_of_one_cluster(region_per_subject_left_list, c_hemi_idx, num_subjects, num_regions)
+        result_region_index_right = region_of_one_cluster(region_per_subject_right_list, c_hemi_idx, num_subjects, num_regions)
 
-        for s_idx in range(num_subjects):
-            region_one_subject = region_per_subject_left_list[s_idx][c_hemi_idx + 1, 1:]
-            region_one_subject = [float(r) for r in region_one_subject]
-
-            if region_one_subject[0] == 0: # if cluster is empty
-                region_belong = []
-            else:
-                region_one_subject_percentage = numpy.divide(region_one_subject, region_one_subject[0])
-
-                if numpy.sum(region_one_subject_percentage[1:]) == 0: # if no WMQL result
-                    region_belong = []
-                else:
-                    region_belong = numpy.argsort(region_one_subject_percentage[1:])[-1]
-
-            subject_vs_region_one_cluster[s_idx, region_belong] = 1
-
-        print ' - Potential region: ',
-        num_subjects_per_region = numpy.sum(subject_vs_region_one_cluster, axis=0)
-        max_region_index = numpy.argsort(num_subjects_per_region)[-1]
-        if num_subjects_per_region[max_region_index] !=0:
-            print region_list[max_region_index], '(', num_subjects_per_region[max_region_index], ')'
+        if result_region_index_left is not None:
+            print region_list[result_region_index_left],
         else:
-            print 'None'
+            print None,
 
+        if result_region_index_right is not None:
+            print region_list[result_region_index_right]
+        else:
+            print None

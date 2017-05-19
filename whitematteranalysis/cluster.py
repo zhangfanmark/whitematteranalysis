@@ -237,9 +237,9 @@ def spectral(input_polydata, number_of_clusters=200,
             raise AssertionError
         
         # Separate the Nystrom sample and the rest of the data.
-        polydata_m = filter.mask(input_polydata, nystrom_mask, verbose=False)
+        polydata_m = filter.mask(input_polydata, nystrom_mask, preserve_point_data=True, verbose=False)
         atlas.nystrom_polydata = polydata_m
-        polydata_n = filter.mask(input_polydata, nystrom_mask == False, verbose=False)
+        polydata_n = filter.mask(input_polydata, nystrom_mask == False, preserve_point_data=True, verbose=False)
         sz = polydata_m.GetNumberOfLines()
         print '<cluster.py> Using Nystrom approximation. Subset size:',  sz, '/', number_fibers
         # Determine ordering to get embedding to correspond to original input data.
@@ -315,7 +315,7 @@ def spectral(input_polydata, number_of_clusters=200,
         testval = numpy.max(A-A2) 
         if not testval == 0.0:
             print "<cluster.py> A matrix differs by PSD matrix by maximum of:", testval
-            if testval > 0.25:
+            if testval > 0.4:
                 print "<cluster.py> ERROR: A matrix changed by more than 0.25."
                 raise AssertionError
         A = A2
@@ -384,10 +384,18 @@ def spectral(input_polydata, number_of_clusters=200,
             midxB = numpy.nonzero(not_nystrom_mask)[0]
             not_nystrom_mask[midxB[reject_B]] = False
 
-            polydata_m = filter.mask(input_polydata, nystrom_mask_2, verbose=False)
+            if len(reject_A) > 0:
+                polydata_m = filter.mask(input_polydata, nystrom_mask_2, preserve_point_data=True, verbose=False)
             atlas.nystrom_polydata = polydata_m
-            polydata_n = filter.mask(input_polydata, not_nystrom_mask, verbose=False)
-            output_polydata = filter.mask(input_polydata, numpy.add(nystrom_mask_2, not_nystrom_mask),verbose=False)
+
+            if len(reject_B) > 0:
+                polydata_n = filter.mask(input_polydata, not_nystrom_mask, preserve_point_data=True, verbose=False)
+
+            if len(reject_A) == 0 and len(reject_B) == 0:
+                output_polydata = input_polydata
+            else:
+                output_polydata = filter.mask(input_polydata, numpy.add(nystrom_mask_2, not_nystrom_mask), preserve_point_data=True, verbose=False)
+
             sz = polydata_m.GetNumberOfLines()
             number_fibers = output_polydata.GetNumberOfLines()
             print '<cluster.py> Using Nystrom approximation. Subset size (A):',  sz, '/', number_fibers, "B:", polydata_n.GetNumberOfLines()
@@ -1072,6 +1080,8 @@ def output_and_quality_control_cluster_atlas(atlas, output_polydata_s, subject_f
         ren = render.render(output_polydata_s, 1000, data_mode='Cell', data_name='EmbeddingColor', verbose=verbose)
         ren.save_views(outdir, verbose=verbose)
         del ren
+
+    return pd_c_list
 
 def mask_all_clusters(inpd, cluster_numbers_s, number_of_clusters, color=None, preserve_point_data=True, preserve_cell_data=False, verbose=True):
 

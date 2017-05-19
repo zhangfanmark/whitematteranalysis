@@ -331,42 +331,47 @@ for pd in input_polydatas:
 readme_file.write(outstr)
 readme_file.close()
 
+if not os.path.exists(os.path.join(outdir, 'input_data.vtp')):
+    # read in data
+    input_pds = list()
+    for fname in input_polydatas:
+        # read data
+        print "<wm_cluster_atlas.py> Reading input file:", fname
+        pd = wma.io.read_polydata(fname)
+        # preprocessing step: minimum length
+        #print "<wm_cluster_atlas.py> Preprocessing by length:", fiber_length, "mm."
+        pd2 = wma.filter.preprocess(pd, fiber_length,verbose=verbose)
+        # preprocessing step: fibers to analyze
+        if number_of_fibers_per_subject is not None:
+            print "<wm_cluster_atlas.py> Downsampling to", number_of_fibers_per_subject, "fibers from",  pd2.GetNumberOfLines(),"fibers over length", fiber_length, "."
+            pd3 = wma.filter.downsample(pd2, number_of_fibers_per_subject, verbose=verbose, random_seed=random_seed)
+            if pd3.GetNumberOfLines() != number_of_fibers_per_subject:
+                print "<wm_cluster_atlas.py> Fibers found:", pd3.GetNumberOfLines(), "Fibers requested:", number_of_fibers_per_subject
+                print "\n<wm_cluster_atlas.py> ERROR: too few fibers over length threshold in subject:", fname
+                exit()
+        else:
+            pd3 = pd2
+        input_pds.append(pd3)
+        del pd
+        del pd2
+        # safe because list has a reference to pd3
+        del pd3
 
-# read in data
-input_pds = list()
-for fname in input_polydatas:
-    # read data
-    print "<wm_cluster_atlas.py> Reading input file:", fname
-    pd = wma.io.read_polydata(fname)
-    # preprocessing step: minimum length
-    #print "<wm_cluster_atlas.py> Preprocessing by length:", fiber_length, "mm."
-    pd2 = wma.filter.preprocess(pd, fiber_length,verbose=verbose)
-    # preprocessing step: fibers to analyze
-    if number_of_fibers_per_subject is not None:
-        print "<wm_cluster_atlas.py> Downsampling to", number_of_fibers_per_subject, "fibers from",  pd2.GetNumberOfLines(),"fibers over length", fiber_length, "."
-        pd3 = wma.filter.downsample(pd2, number_of_fibers_per_subject, verbose=verbose, random_seed=random_seed)
-        if pd3.GetNumberOfLines() != number_of_fibers_per_subject:
-            print "<wm_cluster_atlas.py> Fibers found:", pd3.GetNumberOfLines(), "Fibers requested:", number_of_fibers_per_subject
-            print "\n<wm_cluster_atlas.py> ERROR: too few fibers over length threshold in subject:", fname
-            exit()
-    else:
-        pd3 = pd2
-    input_pds.append(pd3)
-    del pd
-    del pd2
-    # safe because list has a reference to pd3
-    del pd3
-
-# append into one polydata object for clustering
-appender = vtk.vtkAppendPolyData()
-for pd in input_pds:
-    if (vtk.vtkVersion().GetVTKMajorVersion() >= 6.0):
-        appender.AddInputData(pd)
-    else:
-        appender.AddInput(pd)
-appender.Update()
-input_data = appender.GetOutput()
-del input_pds
+    # append into one polydata object for clustering
+    appender = vtk.vtkAppendPolyData()
+    for pd in input_pds:
+        if (vtk.vtkVersion().GetVTKMajorVersion() >= 6.0):
+            appender.AddInputData(pd)
+        else:
+            appender.AddInput(pd)
+    appender.Update()
+    input_data = appender.GetOutput()
+    del input_pds
+else:
+    import time
+    print "Reading input_data.vtp: ", time.asctime()
+    input_data = wma.io.read_polydata(os.path.join(outdir, 'input_data.vtp'))
+    print "After reading input_data.vtp: ", time.asctime()
 
 # figure out which subject each fiber was from in the input to the clustering
 subject_fiber_list = list()
@@ -440,7 +445,7 @@ for iteration in range(cluster_iterations):
         print "<wm_cluster_atlas.py> Output directory", outdir1, "does not exist, creating it."
         os.makedirs(outdir1)    
     print '<wm_cluster_atlas.py> Saving output files in directory:', outdir1
-    wma.cluster.output_and_quality_control_cluster_atlas(atlas, output_polydata_s, subject_fiber_list, input_polydatas, number_of_subjects, outdir1, cluster_numbers_s, color, embed, number_of_fibers_to_display, testing=testing, verbose=False, render_images=render)
+    pd_c_list = wma.cluster.output_and_quality_control_cluster_atlas(atlas, output_polydata_s, subject_fiber_list, input_polydatas, number_of_subjects, outdir1, cluster_numbers_s, color, embed, number_of_fibers_to_display, testing=testing, verbose=False, render_images=render)
 
     # Remove outliers from this iteration and save atlas again                                                 
     print "Starting local cluster outlier removal"
@@ -492,8 +497,8 @@ for iteration in range(cluster_iterations):
         cluster_subjects_before.append(subjects_per_cluster)
 
         # grab the cluster as polydata
-        pd_c = wma.filter.mask(output_polydata_s, mask,verbose=False)
-
+        # pd_c = wma.filter.mask(output_polydata_s, mask, verbose=False)
+        pd_c = pd_c_list[c]
         # figure out hemisphere labels for this cluster
         farray = wma.fibers.FiberArray()
         farray.hemispheres = True

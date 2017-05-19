@@ -367,6 +367,8 @@ if not os.path.exists(os.path.join(outdir, 'input_data.vtp')):
     appender.Update()
     input_data = appender.GetOutput()
     del input_pds
+
+    wma.io.write_polydata(input_data, os.path.join(outdir, 'input_data.vtp'))
 else:
     import time
     print "Reading input_data.vtp: ", time.asctime()

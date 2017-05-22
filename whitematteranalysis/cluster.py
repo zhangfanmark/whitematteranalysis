@@ -31,6 +31,7 @@ import filter
 import render
 import io
 import mrml
+import time
 
 from pprint import pprint
 
@@ -203,8 +204,7 @@ def spectral(input_polydata, number_of_clusters=200,
         print "<cluster.py> ERROR: Cannot cluster polydata with 0 fibers."
         return
 
-    atlas = ClusterAtlas() 
-
+    atlas = ClusterAtlas()
     # Store all parameters to this function. They must be identical later to label new data.
     # Below, calculated values will also be stored in the atlas.
     atlas.number_of_eigenvectors = number_of_eigenvectors
@@ -235,7 +235,7 @@ def spectral(input_polydata, number_of_clusters=200,
         if not test:
             print "<cluster.py> ERROR: Nystrom data mask size does not match polydata number of lines."
             raise AssertionError
-        
+
         # Separate the Nystrom sample and the rest of the data.
         polydata_m = filter.mask(input_polydata, nystrom_mask, preserve_point_data=True, verbose=False)
         atlas.nystrom_polydata = polydata_m
@@ -251,17 +251,21 @@ def spectral(input_polydata, number_of_clusters=200,
             landmarks_m = landmarks_n = None
 
         # Calculate fiber similarities
+        print "<cluster.py> Before computing A: ", time.asctime()
         A = \
             _pairwise_similarity_matrix(polydata_m, threshold,
                                         sigma, number_of_jobs, landmarks_m, distance_method, bilateral)
+        print "<cluster.py> After computing A: ", time.asctime()
+        print "<cluster.py> Before computing B: ", time.asctime()
         B = \
             _rectangular_similarity_matrix(polydata_n, polydata_m, threshold,
                                            sigma, number_of_jobs, landmarks_n, landmarks_m, distance_method, bilateral)
+        print "<cluster.py> After computing A: ", time.asctime()
 
         # sanity check
         print "<cluster.py> Range of values in A:", numpy.min(A), numpy.max(A)
         print "<cluster.py> Range of values in B:", numpy.min(B), numpy.max(B)
-        
+
     else:
         # Calculate all fiber similarities
         A = \
@@ -271,8 +275,8 @@ def spectral(input_polydata, number_of_clusters=200,
         atlas.nystrom_polydata = input_polydata
         # sanity check
         print "<cluster.py> Range of values in A:", numpy.min(A), numpy.max(A)
-        
-    testval = numpy.max(A-A.T) 
+
+    testval = numpy.max(A-A.T)
     if not testval == 0.0:
         if testval > 1e-10:
             print "<cluster.py> ERROR: A matrix is not symmetric."
@@ -281,7 +285,7 @@ def spectral(input_polydata, number_of_clusters=200,
             print "<cluster.py> Maximum of A - A^T:", testval
         # Ensure that A is symmetric
         A = numpy.divide(A+A.T, 2.0)
-        
+
     testval = numpy.min(A)
     if not testval > 0.0:
         print "<cluster.py> ERROR: A matrix is not positive."
@@ -292,52 +296,52 @@ def spectral(input_polydata, number_of_clusters=200,
     # Outliers will have low measured (or estimated) row sums. Detect outliers in A:
     # to turn off for testing: outlier_std_threshold = numpy.inf
     row_sum_A_initial = numpy.sum(A, axis=0) + numpy.sum(B.T, axis=0)
-    print "<cluster.py> Initial similarity (row) sum A:", numpy.mean(row_sum_A_initial), numpy.std(row_sum_A_initial), numpy.min(row_sum_A_initial)
+    print "<cluster.py> Initial similarity (row) sum A:", numpy.mean(row_sum_A_initial), numpy.std(row_sum_A_initial), numpy.min(row_sum_A_initial), time.asctime()
     atlas.outlier_std_threshold = outlier_std_threshold
     atlas.row_sum_threshold_for_rejection = numpy.mean(row_sum_A_initial) - outlier_std_threshold*numpy.std(row_sum_A_initial)
     bad_idx = numpy.nonzero(row_sum_A_initial < atlas.row_sum_threshold_for_rejection)[0]
     reject_A = bad_idx
-    print "<cluster.py> Rejecting n=", len(bad_idx), "/", sz, "fibers >", outlier_std_threshold, "standard deviations below the mean total fiber similarity"
+    print "<cluster.py> Rejecting n=", len(bad_idx), "/", sz, "fibers >", outlier_std_threshold, "standard deviations below the mean total fiber similarity", time.asctime()
 
     A = numpy.delete(A,reject_A,0)
     A = numpy.delete(A,reject_A,1)
     #print A.shape, B.shape
     B = numpy.delete(B,reject_A,0)
     #print A.shape, B.shape, reorder_embedding.shape
-                    
+
     # Ensure that A is positive definite.
     if pos_def_approx:
         e_val, e_vec = numpy.linalg.eigh(A)
-        print "<cluster.py> Eigenvalue range of A:", e_val[0], e_val[-1]
+        print "<cluster.py> Eigenvalue range of A:", e_val[0], e_val[-1], time.asctime()
         A2 = nearPSD(A)
         e_val, e_vec = numpy.linalg.eigh(A2)
-        print "<cluster.py> Eigenvalue range of nearest PSD matrix to A:", e_val[0], e_val[-1]  
-        testval = numpy.max(A-A2) 
+        print "<cluster.py> Eigenvalue range of nearest PSD matrix to A:", e_val[0], e_val[-1], time.asctime()
+        testval = numpy.max(A-A2)
         if not testval == 0.0:
-            print "<cluster.py> A matrix differs by PSD matrix by maximum of:", testval
+            print "<cluster.py> A matrix differs by PSD matrix by maximum of:", testval, time.asctime()
             if testval > 0.4:
                 print "<cluster.py> ERROR: A matrix changed by more than 0.25."
                 raise AssertionError
         A = A2
-        
+
     # 2) Do Normalized Cuts transform of similarity matrix.
     # See the paper: "Spectral Grouping Using the Nystrom Method"
     # (D^-1/2 W D^-1/2) V = V Lambda
     if normalized_cuts:
         if use_nystrom:
-            # Form of entire affinity matrix: 
+            # Form of entire affinity matrix:
             # A   B
             # B^T   C
             # C is not computed.
             # Calculate the sum of the partial rows we've computed:
-            atlas.row_sum_1 = numpy.sum(A, axis=0) + numpy.sum(B.T, axis=0)  
+            atlas.row_sum_1 = numpy.sum(A, axis=0) + numpy.sum(B.T, axis=0)
             #print "<cluster.py> A size:", A.shape
             #print "<cluster.py> B size:", B.shape
             #print "<cluster.py> A-B matrix row sums range (should be > 0):", numpy.min(atlas.row_sum_1), numpy.max(atlas.row_sum_1)
-            
+
             # Approximate the sum of the rest of the data (including C)
             # These are weighted sums of the columns we did compute
-            # where the weight depends on how similar that fiber 
+            # where the weight depends on how similar that fiber
             # was to each path in A.  This uses the dual basis
             # of the columns in A.
             # Approximate the inverse of A for dual basis
@@ -345,7 +349,7 @@ def spectral(input_polydata, number_of_clusters=200,
             atlas.pinv_A = numpy.linalg.pinv(A)
 
             #e_val, e_vec = numpy.linalg.eigh(atlas.pinv_A)
-            #print "<cluster.py> test of non-normalized A pseudoinverse Eigenvalue range:", e_val[0], e_val[-1]  
+            #print "<cluster.py> test of non-normalized A pseudoinverse Eigenvalue range:", e_val[0], e_val[-1]
 
             # row sum formula:
             # dhat = [a_r + b_r; b_c + B^T*A-1*b_r]
@@ -354,26 +358,26 @@ def spectral(input_polydata, number_of_clusters=200,
             atlas.row_sum_matrix = numpy.dot(numpy.sum(B.T, axis=0), atlas.pinv_A)
             #test = numpy.sum(B.T, axis=0)
             #print "<cluster.py> B column sums range (should be > 0):", numpy.min(test), numpy.max(test)
-            print "<cluster.py> Range of row sum weights:", numpy.min(atlas.row_sum_matrix), numpy.max(atlas.row_sum_matrix)
+            print "<cluster.py> Range of row sum weights:", numpy.min(atlas.row_sum_matrix), numpy.max(atlas.row_sum_matrix), time.asctime()
             #print "<cluster.py> First 10 entries in weight matrix:", atlas.row_sum_matrix[0:10]
             #test = numpy.dot(atlas.row_sum_matrix, B)
             #print "<cluster.py> Test partial sum estimation for B:", numpy.min(test), numpy.max(test)
             #del test
-            
+
             # row sum estimate for current B part of the matrix
             row_sum_2 = numpy.sum(B, axis=0) + \
                 numpy.dot(atlas.row_sum_matrix, B)
-            print "<cluster.py> Row sum check (min/max, should be > 0) A:", numpy.min(atlas.row_sum_1), numpy.median(atlas.row_sum_1), numpy.max(atlas.row_sum_1),  "B:", numpy.min(row_sum_2), numpy.median(row_sum_2), numpy.max(row_sum_2)
+            print "<cluster.py> Row sum check (min/max, should be > 0) A:", numpy.min(atlas.row_sum_1), numpy.median(atlas.row_sum_1), numpy.max(atlas.row_sum_1),  "B:", numpy.min(row_sum_2), numpy.median(row_sum_2), numpy.max(row_sum_2), time.asctime()
 
             # reject outliers in B
             bad_idx = numpy.nonzero(row_sum_2 < atlas.row_sum_threshold_for_rejection)[0]
             reject_B = bad_idx
-            print "<cluster.py> Rejecting n=", len(bad_idx), "/", B.shape[1], "fibers >", outlier_std_threshold, "standard deviations below the mean total fiber similarity"
+            print "<cluster.py> Rejecting n=", len(bad_idx), "/", B.shape[1], "fibers >", outlier_std_threshold, "standard deviations below the mean total fiber similarity", time.asctime()
             row_sum_2 = numpy.delete(row_sum_2,reject_B)
             B = numpy.delete(B,reject_B,1)
 
-            print "<cluster.py> After outlier rejection A:", A.shape, "B:", B.shape
-            print "<cluster.py> Row sum check (min/max, should be > 0) A:", numpy.min(atlas.row_sum_1), numpy.median(atlas.row_sum_1), numpy.max(atlas.row_sum_1),  "B:", numpy.min(row_sum_2), numpy.median(row_sum_2), numpy.max(row_sum_2)
+            print "<cluster.py> After outlier rejection A:", A.shape, "B:", B.shape, time.asctime()
+            print "<cluster.py> Row sum check (min/max, should be > 0) A:", numpy.min(atlas.row_sum_1), numpy.median(atlas.row_sum_1), numpy.max(atlas.row_sum_1),  "B:", numpy.min(row_sum_2), numpy.median(row_sum_2), numpy.max(row_sum_2), time.asctime()
 
             # Separate the Nystrom sample and the rest of the data after removing outliers
             nystrom_mask_2 = nystrom_mask
@@ -398,7 +402,7 @@ def spectral(input_polydata, number_of_clusters=200,
 
             sz = polydata_m.GetNumberOfLines()
             number_fibers = output_polydata.GetNumberOfLines()
-            print '<cluster.py> Using Nystrom approximation. Subset size (A):',  sz, '/', number_fibers, "B:", polydata_n.GetNumberOfLines()
+            print '<cluster.py> Using Nystrom approximation. Subset size (A):',  sz, '/', number_fibers, "B:", polydata_n.GetNumberOfLines(), time.asctime()
             # Determine ordering to get embedding to correspond to original input data.
             # reject outliers from masks
             reject_idx = numpy.concatenate((midxA[reject_A],midxB[reject_B]))
@@ -407,7 +411,7 @@ def spectral(input_polydata, number_of_clusters=200,
             #print "hi after mask:", reorder_embedding.shape, numpy.sum(nystrom_mask_2), numpy.sum(not_nystrom_mask)
             reorder_embedding = numpy.concatenate((numpy.where(nystrom_mask_2)[0], numpy.where(not_nystrom_mask)[0]))
             #print "hi after embed reorder calc:", reorder_embedding.shape, numpy.max(reorder_embedding), numpy.min(reorder_embedding)
-           
+
             # in case of negative row sum estimation
             if any(row_sum_2<=0):
                 print "<cluster.py> Warning: Consider increasing sigma or using the Mean distance. negative row sum approximations."
@@ -436,21 +440,21 @@ def spectral(input_polydata, number_of_clusters=200,
                 numpy.multiply(A, numpy.outer(dhat, dhat.T))
 
     # 3) Compute eigenvectors for use in spectral embedding
-    print '<cluster.py> Calculating eigenvectors of similarity matrix A...'
+    print '<cluster.py> Calculating eigenvectors of similarity matrix A...', time.asctime()
     atlas.e_val, atlas.e_vec = numpy.linalg.eigh(A)
-    print '<cluster.py> Done calculating eigenvectors.'
-    print "<cluster.py> Eigenvalue range:", atlas.e_val[0], atlas.e_val[-1]    
+    print '<cluster.py> Done calculating eigenvectors.', time.asctime()
+    print "<cluster.py> Eigenvalue range:", atlas.e_val[0], atlas.e_val[-1]
     # Check how well our chosen number of eigenvectors models the data
     power = numpy.cumsum(atlas.e_val[::-1]) / numpy.sum(atlas.e_val)
-    print "<cluster.py> Power from chosen number of eigenvectors (", number_of_eigenvectors, ')', power[number_of_eigenvectors]
-    print '<cluster.py> Top eigenvalues:', atlas.e_val[::-1][1:number_of_eigenvectors]
+    print "<cluster.py> Power from chosen number of eigenvectors (", number_of_eigenvectors, ')', power[number_of_eigenvectors], time.asctime()
+    print '<cluster.py> Top eigenvalues:', atlas.e_val[::-1][1:number_of_eigenvectors], time.asctime()
 
     # 4) Compute embedding using eigenvectors
-    print('<cluster.py> Compute embedding using eigenvectors.')
+    print '<cluster.py> Compute embedding using eigenvectors.', time.asctime()
     if use_nystrom:
         # Create embedding vectors using nystrom approximation to find
         # the approximate top eigenvectors of the matrix
-        # L = D^(-1/2) (D - W) D^(-1/2) 
+        # L = D^(-1/2) (D - W) D^(-1/2)
         # See the paper:
         # "Spectral Grouping Using the Nystrom Method"
         # Basically all this does is adds in the extra measurements
@@ -461,7 +465,7 @@ def spectral(input_polydata, number_of_clusters=200,
         # than sqrt of row sum, as in this code (below).
 
         # matlab was: % project onto eigenvectors of A:
-        # % v' = [v ; B'*v*d^-1 
+        # % v' = [v ; B'*v*d^-1
         # V = [atlas.eigenvectA; B'*atlas.eigenvectA*(diag(1./diag(atlas.eigenvalA)))];
         V = numpy.concatenate((atlas.e_vec, \
                                   numpy.dot(numpy.dot(B.T, atlas.e_vec), \
@@ -500,7 +504,7 @@ def spectral(input_polydata, number_of_clusters=200,
     # 5) Find clusters using k-means in embedding space.
     cluster_metric = None
     if centroid_finder == 'K-means':
-        print '<cluster.py> K-means clustering in embedding space.'
+        print '<cluster.py> K-means clustering in embedding space.', time.asctime()
         centroids, cluster_metric = scipy.cluster.vq.kmeans2(embed, number_of_clusters, minit='points')
         # sort centroids by first eigenvector order
         # centroid_order = numpy.argsort(centroids[:,0])
@@ -536,7 +540,7 @@ def spectral(input_polydata, number_of_clusters=200,
         ##     print("Silhouette Coefficient: %0.3f" % cluster_metric)
 
     # 6) Output results.
-    print '<cluster.py> Done spectral clustering, returning results.'
+    print '<cluster.py> Done spectral clustering, returning results.', time.asctime()
     # visualize embedding coordinates as RGB
     embed2 = embed
     #embed2[numpy.isnan(embed)] = 0.0
@@ -932,7 +936,7 @@ def output_and_quality_control_cluster_atlas(atlas, output_polydata_s, subject_f
 
     # Write the polydata with cluster indices saved as cell data
     fname_output = os.path.join(outdir, 'clustered_whole_brain.vtp')
-    io.write_polydata(output_polydata_s, fname_output)
+    # io.write_polydata(output_polydata_s, fname_output)
 
     # output summary file to save information about all subjects
     subjects_qc_fname = os.path.join(outdir, 'input_subjects.txt')
@@ -1009,13 +1013,13 @@ def output_and_quality_control_cluster_atlas(atlas, output_polydata_s, subject_f
     # Figure out file name and mean color for each cluster, and write the individual polydatas
     pd_c_list = mask_all_clusters(output_polydata_s, cluster_numbers_s, len(cluster_indices), preserve_point_data=True,
                                   preserve_cell_data=True, verbose=False)
-    print "<cluster.py> Beginning to save individual clusters as polydata files. TOTAL CLUSTERS:", len(cluster_indices),
+    print "<cluster.py> Beginning to save individual clusters as polydata files. TOTAL CLUSTERS:", len(cluster_indices), time.asctime()
     fnames = list()
     cluster_colors = list()
     cluster_sizes = list()
     cluster_fnames = list()
     for c in cluster_indices:
-        print c,
+        #print c,
         mask = cluster_numbers_s == c
         cluster_size = numpy.sum(mask)
         cluster_sizes.append(cluster_size)
@@ -1044,7 +1048,7 @@ def output_and_quality_control_cluster_atlas(atlas, output_polydata_s, subject_f
         else:
             cluster_colors.append([0,0,0])
         del pd_c
-    print "\n<cluster.py> Finishes saving individual clusters as polydata files."
+    print "\n<cluster.py> Finishes saving individual clusters as polydata files.", time.asctime()
 
     # Notify user if some clusters empty
     empty_count = 0

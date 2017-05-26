@@ -111,7 +111,7 @@ for c_idx in range(num_clusters):
 
     print ' - cluster_{0:05d}'.format(c_idx+1), 'is a', location_per_cluster[c_idx], 'cluster.'
 
-    if location_per_cluster[c_idx] == 'hemispheric':
+    if location_per_cluster[c_idx] == 'hemispheric' or location_per_cluster[c_idx] == 'Not Given':
         print '  - commissural cluster_{0:05d}.vtp'.format(c_idx+1), 'move to invalid.'
         shutil.move(os.path.join(comm_dir, 'cluster_{0:05d}.vtp'.format(c_idx+1)), comm_invalid_dir)
         num_of_invalid_comm = num_of_invalid_comm + 1

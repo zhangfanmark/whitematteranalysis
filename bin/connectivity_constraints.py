@@ -4,7 +4,144 @@ import os
 import vtk
 import scipy
 
-def get_label_array(input_data):
+def get_endpiont_region(input_data):
+
+    label_array = get_label_array(input_data, verbose=False)
+
+    num_fibers = input_data.GetNumberOfLines()
+    # connectivity = numpy.zeros([num_fibers, num_fibers])
+
+    dtype = [('ep_1', int), ('ep_2', int)]
+    endpoint_regions = []
+
+    # get the endpoint regions for each fiber
+    input_data.GetLines().InitTraversal()
+    line_ptids = vtk.vtkIdList()
+    for lidx in range(0, num_fibers):
+        input_data.GetLines().GetNextCell(line_ptids)
+        line_length = line_ptids.GetNumberOfIds()
+
+        ptidx_1 = line_ptids.GetId(0)
+        ptidx_2 = line_ptids.GetId(line_length - 1)
+        label_1 = int(label_array.GetTuple(ptidx_1)[0])
+        label_2 = int(label_array.GetTuple(ptidx_2)[0])
+
+        label_1 = region_label(label_1)
+        label_2 = region_label(label_2)
+
+        if label_1 <= label_2:
+            endpoint_regions.append((label_1, label_2))
+        else:
+            endpoint_regions.append((label_2, label_1))
+
+    # sort the fibers according to the endpoint label of the first point
+    endpoint_regions = numpy.array(endpoint_regions, dtype=dtype)
+
+    return endpoint_regions
+
+
+def get_along_tract_region(input_data, verbose=True):
+
+    label_array = get_label_array(input_data, verbose=False)
+
+    num_fibers = input_data.GetNumberOfLines()
+
+    # loop over lines
+    input_data.GetLines().InitTraversal()
+    line_ptids = vtk.vtkIdList()
+
+    along_tract_regions = []
+    for lidx in range(0, num_fibers):
+
+        input_data.GetLines().GetNextCell(line_ptids)
+        line_length = line_ptids.GetNumberOfIds()
+
+        # loop over the indices that we want and get those points
+        region_one_fiber = []
+        for line_index in range(line_length):
+            # do nearest neighbor interpolation: round index
+            ptidx = line_ptids.GetId(int(round(line_index)))
+            array_label = label_array.GetTuple(ptidx)[0]
+            array_label = region_label(array_label)
+
+            region_one_fiber.append(array_label)
+
+        region_one_fiber = numpy.unique(region_one_fiber)
+        region_one_fiber = region_one_fiber[numpy.where(region_one_fiber>0)]
+
+        if verbose:
+            print ' --Fiber', lidx, 'regions:', region_one_fiber
+
+        along_tract_regions.append(region_one_fiber)
+
+    return along_tract_regions
+
+def get_along_tract_region_OLD(input_data, points_per_fiber=12):
+
+    label_array = get_label_array(input_data, verbose=False)
+
+    num_fibers = input_data.GetNumberOfLines()
+
+    along_tract_regions = numpy.zeros((num_fibers, points_per_fiber))
+    # loop over lines
+    input_data.GetLines().InitTraversal()
+    line_ptids = vtk.vtkIdList()
+
+    for lidx in range(0, num_fibers):
+
+        input_data.GetLines().GetNextCell(line_ptids)
+        line_length = line_ptids.GetNumberOfIds()
+
+        # loop over the indices that we want and get those points
+        pidx = 0
+        for line_index in _calculate_line_indices(line_length, points_per_fiber):
+            # do nearest neighbor interpolation: round index
+            ptidx = line_ptids.GetId(int(round(line_index)))
+            array_label = label_array.GetTuple(ptidx)[0]
+            array_label = region_label(array_label)
+
+            along_tract_regions[lidx, pidx] = array_label
+
+            pidx = pidx + 1
+
+    return along_tract_regions
+
+
+def _calculate_line_indices(input_line_length, output_line_length):
+    """ Figure out indices for downsampling of polyline data.
+
+    The indices include the first and last points on the line,
+    plus evenly spaced points along the line.  This code figures
+    out which indices we actually want from a line based on its
+    length (in number of points) and the desired length.
+
+    """
+
+    # this is the increment between output points
+    step = (input_line_length - 1.0) / (output_line_length - 1.0)
+
+    # these are the output point indices (0-based)
+    ptlist = []
+    for ptidx in range(0, output_line_length):
+        # print(ptidx*step)
+        ptlist.append(ptidx * step)
+
+    # test
+    if __debug__:
+        # this tests we output the last point on the line
+        # test = ((output_line_length - 1) * step == input_line_length - 1)
+        test = (round(ptidx * step) == input_line_length - 1)
+        if not test:
+            print "<fibers.py> ERROR: fiber numbers don't add up."
+            print step
+            print input_line_length
+            print output_line_length
+            print test
+            raise AssertionError
+
+    return ptlist
+
+def get_label_array(input_data, verbose=True):
 
     input_data.GetLines().InitTraversal()
     num_fibers = input_data.GetNumberOfLines()
@@ -12,7 +149,8 @@ def get_label_array(input_data):
     inpointsdata = input_data.GetPointData()
     num_points = inpoints.GetNumberOfPoints()
 
-    print 'Total fiber number in the atlas:', num_fibers, ', point number in the atlas:', num_points
+    if verbose:
+        print 'Total fiber number in the atlas:', num_fibers, ', point number in the atlas:', num_points
 
     if inpointsdata.GetNumberOfArrays() > 0:
         point_data_array_indices = range(inpointsdata.GetNumberOfArrays())
@@ -22,6 +160,7 @@ def get_label_array(input_data):
                 label_array = array
 
     return label_array
+
 
 def _by_two_endpoints(input_data, outdir, subject_fiber_list, output_fibers_per_group=False):
     label_array = get_label_array(input_data)

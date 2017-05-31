@@ -263,7 +263,7 @@ def spectral(input_polydata, number_of_clusters=200,
         else:
             landmarks_m = landmarks_n = None
 
-        if not os.path.exists(os.path.join(outdir, 'A.npy')):
+        if True:# not os.path.exists(os.path.join(outdir, 'A.npy')):
             # Calculate fiber similarities
             print '<cluster.py> Computing A'
             A = \
@@ -274,11 +274,11 @@ def spectral(input_polydata, number_of_clusters=200,
                 _rectangular_similarity_matrix(polydata_n, polydata_m, threshold,
                                                sigma, number_of_jobs, landmarks_n, landmarks_m, distance_method, bilateral)
 
-            numpy.save(os.path.join(outdir, 'A'), A)
-            numpy.save(os.path.join(outdir, 'B'), B)
+            #numpy.save(os.path.join(outdir, 'A'), A)
+            #numpy.save(os.path.join(outdir, 'B'), B)
         else:
-            A = numpy.load(os.path.join(outdir, 'A.npy'))
-            B = numpy.load(os.path.join(outdir, 'B.npy'))
+           A = numpy.load(os.path.join(outdir, 'A.npy'))
+           B = numpy.load(os.path.join(outdir, 'B.npy'))
 
         # sanity check
         print "<cluster.py> Range of values in A:", numpy.min(A), numpy.max(A), A.shape

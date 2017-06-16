@@ -70,7 +70,7 @@ parser.add_argument(
     '-cluster_outlier_std', action='store', dest="clusterOutlierStandardDeviation", type=float, default=2.0,
     help='After clustering, reject fiber outliers whose fiber probability (within their cluster) is more than this number of standard deviations below the mean (either within-cluster mean or across-clusters mean). Then, on the next iteration, the clustering will be re-run without being affected by the outlier fibers. The default is 2.0 standard deviations. For more strict rejection, enter a smaller number such as 1.75. To turn off outlier rejection, enter a large number such as 100 (and set the number of iterations to 1). This probability is measured in an accurate way using pairwise comparison of all fibers in each cluster, in a leave-one-out fashion with regards to subjects. The purpose of this is to remove outlier fibers accurately within each cluster. This parameter can be tuned by the user depending on the amount of outlier fibers present in the tractography.')
 parser.add_argument(
-    '-iter', action='store', dest="iterations", type=int, default=5,
+    '-iter', action='store', dest="iterations", type=int, default=4,
     help='The number of iterations to repeat the clustering and outlier removal process. The default is three iterations. Visual inspection of the atlases produced after 0, 1, 2, etc. iterations of outlier removal should help choose which iteration works well for the particular dataset.')
 parser.add_argument(
     '-subject_percent', action='store', dest="subjectPercentToKeepCluster",type=float, default=0.4,
@@ -338,24 +338,27 @@ if not os.path.exists(os.path.join(outdir, 'input_data.vtp')):
         # read data
         print "<wm_cluster_atlas.py> Reading input file:", fname
         pd = wma.io.read_polydata(fname)
-        # preprocessing step: minimum length
-        #print "<wm_cluster_atlas.py> Preprocessing by length:", fiber_length, "mm."
-        pd2 = wma.filter.preprocess(pd, fiber_length, preserve_point_data=True, verbose=verbose)
-        # preprocessing step: fibers to analyze
-        if number_of_fibers_per_subject is not None:
-            print "<wm_cluster_atlas.py> Downsampling to", number_of_fibers_per_subject, "fibers from",  pd2.GetNumberOfLines(),"fibers over length", fiber_length, "."
-            pd3 = wma.filter.downsample(pd2, number_of_fibers_per_subject, preserve_point_data=True, verbose=verbose, random_seed=random_seed)
-            if pd3.GetNumberOfLines() != number_of_fibers_per_subject:
-                print "<wm_cluster_atlas.py> Fibers found:", pd3.GetNumberOfLines(), "Fibers requested:", number_of_fibers_per_subject
-                print "\n<wm_cluster_atlas.py> ERROR: too few fibers over length threshold in subject:", fname
-                exit()
-        else:
-            pd3 = pd2
-        input_pds.append(pd3)
+        ## comment out these so that the input data is directly used
+        # # preprocessing step: minimum length
+        # #print "<wm_cluster_atlas.py> Preprocessing by length:", fiber_length, "mm."
+        # pd2 = wma.filter.preprocess(pd, fiber_length, preserve_point_data=True, verbose=verbose)
+        # # preprocessing step: fibers to analyze
+        # if number_of_fibers_per_subject is not None:
+        #     print "<wm_cluster_atlas.py> Downsampling to", number_of_fibers_per_subject, "fibers from",  pd2.GetNumberOfLines(),"fibers over length", fiber_length, "."
+        #     pd3 = wma.filter.downsample(pd2, number_of_fibers_per_subject, preserve_point_data=True, verbose=verbose, random_seed=random_seed)
+        #     if pd3.GetNumberOfLines() != number_of_fibers_per_subject:
+        #         print "<wm_cluster_atlas.py> Fibers found:", pd3.GetNumberOfLines(), "Fibers requested:", number_of_fibers_per_subject
+        #         print "\n<wm_cluster_atlas.py> ERROR: too few fibers over length threshold in subject:", fname
+        #         exit()
+        # else:
+        #     pd3 = pd2
+        # input_pds.append(pd3)
+        # del pd
+        # del pd2
+        # # safe because list has a reference to pd3
+        # del pd3
+        input_pds.append(pd)
         del pd
-        del pd2
-        # safe because list has a reference to pd3
-        del pd3
 
     # append into one polydata object for clustering
     appender = vtk.vtkAppendPolyData()

@@ -40,6 +40,12 @@ parser.add_argument(
     '-fn', type=str, dest="folder_name", default="",
     help='String in the folder name of the subject-specific fiber clustering')
 parser.add_argument(
+    '-th_endpoint', type=float, default=0,
+    help='A cluster connects to a region, if th_endpoint of its endpoint touch the region. 0 means no threshold, thus the regions that are touched by most endpoints.')
+parser.add_argument(
+    '-th_subject', type=float, default=0,
+    help='A cluster connects to a region, if th_subject of the subjects touch the region. 0 means no threshold, thus the regions that are detected in most subjects.')
+parser.add_argument(
     '-cp_mrml', action='store_true', dest="flag_cp_mrml",
     help='If given, a mrml will be copied to the fiber clustering folder of each subject. Otherwise, only one mrml will be generated under the input directory. ')
 parser.add_argument(
@@ -81,7 +87,11 @@ else:
 
 flag_cp_mrml = args.flag_cp_mrml
 
-output_file_path = os.path.join(args.inputDirectory, 'EPA_regions_per_cluster_in_'+hemi+'.txt')
+EPA_dir = os.path.join(args.inputDirectory, 'EPA_analysis')
+if not os.path.exists(EPA_dir):
+    os.makedirs(EPA_dir)
+
+output_file_path = os.path.join(EPA_dir, 'EPA_regions_per_cluster_in_'+hemi+'.txt')
 
 load_previous = False
 if os.path.isfile(output_file_path):
@@ -100,6 +110,8 @@ if not load_previous:
 
     fc_folders = list_fc_folders(args.inputDirectory, hemi, args.folder_name)
 
+    print '\n<EndPointAnalysis> A total of', len(fc_folders), 'subjects.'
+
     num_subjects = len(fc_folders)
     num_clusters = 0
     flag_first = True
@@ -114,7 +126,7 @@ if not load_previous:
                 print len(pd_fc_paths), 'clusters are found in', fc_folder, 'while', num_clusters, 'clusters were deteced before.'
                 exit()
 
-    def get_endpoint_labels_per_cluster(pd_fc):
+    def get_endpoint_labels_per_cluster(pd_fc, th_endpoint=0):
 
         pd_fc.GetLines().InitTraversal()
         line_ptids = vtk.vtkIdList()
@@ -157,6 +169,10 @@ if not load_previous:
         try:
             ep_1_label = min(tmp)
             ep_1_label_percent = numpy.sum(numpy.sum(eps_all == ep_1_label)) / float(len(eps_all))
+
+            if ep_1_label_percent <= th_endpoint:
+                ep_1_label = 0
+                ep_1_label_percent = 0
         except:
             ep_1_label = 0
             ep_1_label_percent = 0
@@ -164,15 +180,19 @@ if not load_previous:
         try:
             ep_2_label = max(tmp)
             ep_2_label_percent = numpy.sum(numpy.sum(eps_all == ep_2_label)) / float(len(eps_all))
+
+            if ep_2_label_percent <= th_endpoint:
+                ep_2_label = 0
+                ep_2_label_percent = 0
         except:
             ep_2_label = 0
             ep_2_label_percent = 0
 
         return (ep_1_label, ep_2_label, ep_1_label_percent, ep_2_label_percent)
 
-    def get_endpoint_labels_per_subject(fc_folder, verbose=False):
+    def get_endpoint_labels_per_subject(fc_folder, th_endpoint=0, verbose=False):
 
-        print '  Subject-specific clustering result: ', fc_folder
+        print '  Subject-specific clustering result:', fc_folder
         pd_fc_paths = wma.io.list_vtk_files(fc_folder)
 
         ep_1_label_all_clusters = []
@@ -191,7 +211,7 @@ if not load_previous:
             #     break
 
             pd_fc = wma.io.read_polydata(pd_fc_path)
-            ep_1_label, ep_2_label, ep_1_label_percent, ep_2_label_percent = get_endpoint_labels_per_cluster(pd_fc)
+            ep_1_label, ep_2_label, ep_1_label_percent, ep_2_label_percent = get_endpoint_labels_per_cluster(pd_fc, th_endpoint)
 
             ep_1_label_all_clusters.append(ep_1_label)
             ep_2_label_all_clusters.append(ep_2_label)
@@ -205,7 +225,7 @@ if not load_previous:
 
     ep_label_all_clusters_all_subjects_concatenate = \
         Parallel(n_jobs=number_of_jobs, verbose=1)(
-            delayed(get_endpoint_labels_per_subject)(fc_folder)
+            delayed(get_endpoint_labels_per_subject)(fc_folder, args.th_endpoint)
             for fc_folder in fc_folders)
 
     ep_label_all_clusters_all_subjects_concatenate = numpy.array(ep_label_all_clusters_all_subjects_concatenate)
@@ -233,7 +253,7 @@ if not load_previous:
 
         ep_label_occurrence = numpy.bincount(ep_both_label_per_cluster_all_subjects_tmp)
 
-        top_two_labels = numpy.argsort(ep_label_occurrence)[-2:]
+        top_two_labels = numpy.add(numpy.argsort(ep_label_occurrence[1:])[-2:], 1)
 
         if len(top_two_labels) == 2:
             ep_1_label_per_cluster_final = top_two_labels[1]
@@ -259,13 +279,14 @@ if not load_previous:
 
             ep_1_label_per_cluster_final_percent = num_subjects_with_ep_1_final / float(num_subjects)
             ep_2_label_per_cluster_final_percent = num_subjects_with_ep_2_final / float(num_subjects)
+
         else:
-            ep_2_label_per_cluster_final = 0
+            ep_1_label_per_cluster_final = 0
             ep_2_label_per_cluster_final = 0
             ep_1_label_per_cluster_final_percent = 0
             ep_2_label_per_cluster_final_percent = 0
 
-
+        # print ep_2_label_per_cluster_final, ep_1_label_per_cluster_final_percent, ep_2_label_per_cluster_final, ep_2_label_per_cluster_final_percent
         # try:
         #     ep_1_label_per_cluster_final = numpy.argmax(numpy.bincount(ep_1_label_per_cluster_all_subjects))
         # except:
@@ -320,8 +341,17 @@ for region_list in region_list_all:
         ep_2_label_per_cluster_final = result_csv[c_idx + 1, 3]
         ep_2_label_per_cluster_final_percent = result_csv[c_idx + 1, 4]
 
-        # print "cluster_%05d:  %8d (%10f) %8d (%10f)" % (c_idx + 1, ep_1_label_per_cluster_final, ep_1_label_per_cluster_final_percent, ep_2_label_per_cluster_final,
-        #       ep_2_label_per_cluster_final_percent)
+        if True:
+            print "cluster_%05d:  %8d (%10f) %8d (%10f)" % (c_idx + 1, ep_1_label_per_cluster_final, ep_1_label_per_cluster_final_percent, ep_2_label_per_cluster_final,
+              ep_2_label_per_cluster_final_percent)
+
+        if ep_1_label_per_cluster_final_percent <= args.th_subject:
+            ep_1_label_per_cluster_final = 0
+            ep_1_label_per_cluster_final_percent = 0
+
+        if ep_2_label_per_cluster_final_percent <= args.th_subject:
+            ep_2_label_per_cluster_final = 0
+            ep_2_label_per_cluster_final_percent = 0
 
         if len(region_list) == 1:
             if ep_1_label_per_cluster_final == region_list[0] or ep_2_label_per_cluster_final == region_list[0]:

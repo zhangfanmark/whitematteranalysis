@@ -131,18 +131,18 @@ atlas = wma.cluster.load_atlas(args.atlasDirectory, 'atlas')
 
 # read data
 print "<wm_cluster_from_atlas.py> Reading input file:", args.inputFile
-pd = wma.io.read_polydata(args.inputFile)
+input_data = wma.io.read_polydata(args.inputFile)
     
-# preprocessing step: minimum length
-print "<wm_cluster_from_atlas.py> Preprocessing by length:", fiber_length, "mm."
-pd2 = wma.filter.preprocess(pd, fiber_length, return_indices=False, preserve_point_data=True, preserve_cell_data=True,verbose=False)
-
-# preprocessing step: fibers to analyze
-if number_of_fibers is not None:
-    print "<wm_cluster_from_atlas.py> Downsampling to ", number_of_fibers, "fibers."
-    input_data = wma.filter.downsample(pd2, number_of_fibers, return_indices=False, preserve_point_data=True, preserve_cell_data=True,verbose=False)
-else:
-    input_data = pd2
+# # preprocessing step: minimum length
+# print "<wm_cluster_from_atlas.py> Preprocessing by length:", fiber_length, "mm."
+# pd2 = wma.filter.preprocess(pd, fiber_length, return_indices=False, preserve_point_data=True, preserve_cell_data=True,verbose=False)
+#
+# # preprocessing step: fibers to analyze
+# if number_of_fibers is not None:
+#     print "<wm_cluster_from_atlas.py> Downsampling to ", number_of_fibers, "fibers."
+#     input_data = wma.filter.downsample(pd2, number_of_fibers, return_indices=False, preserve_point_data=True, preserve_cell_data=True,verbose=False)
+# else:
+#     input_data = pd2
 
 #-----------------
 # Register if needed
@@ -221,8 +221,15 @@ if args.registerAtlasToSubjectSpace:
 #-----------------
 # Cluster the data using clusters from the atlas
 #-----------------
+
+num_lines = input_data.GetNumberOfLines()
+fiber_mask = numpy.ones(num_lines)
+input_data_line_only = wma.filter.mask(input_data, fiber_mask, preserve_point_data=False, preserve_cell_data=False, verbose=False)
+
 output_polydata_s, cluster_numbers_s, color, embed = \
-    wma.cluster.spectral_atlas_label(input_data, atlas, number_of_jobs=number_of_jobs)
+    wma.cluster.spectral_atlas_label(input_data_line_only, atlas, number_of_jobs=number_of_jobs)
+
+output_polydata_s = input_data
 
 # Write the polydata with cluster indices saved as cell data
 # print '<wm_cluster_atlas.py> Saving output whole brain cluster file in directory:', outdir

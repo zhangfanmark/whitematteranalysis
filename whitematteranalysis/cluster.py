@@ -642,8 +642,8 @@ def spectral_atlas_label(input_polydata, atlas, number_of_jobs=2):
     # set up polydata with clustering output info.
     # for now modify input polydata by adding two arrays
     output_polydata = input_polydata
-    output_polydata = \
-        _format_output_polydata(output_polydata, cluster_idx, color, embed, row_sum, numpy.sum(B.T, axis=1))
+    # output_polydata = \
+    #     _format_output_polydata(output_polydata, cluster_idx, color, embed, row_sum, numpy.sum(B.T, axis=1))
 
     return output_polydata, cluster_idx, color, embed
 

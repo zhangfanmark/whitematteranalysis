@@ -66,7 +66,7 @@ region_per_subject_comm_list = []
 region_per_subject_left_list = []
 region_per_subject_right_list = []
 for comm_file, left_file, right_file in zip(region_per_subject_comm_paths, region_per_subject_left_paths, region_per_subject_right_paths):
-    print '<wm_cluster_wmql_region> Loading', comm_file.replace('_commissural.txt', '*')
+    #print '<wm_cluster_wmql_region> Loading', comm_file.replace('_commissural.txt', '*')
     comm = numpy.genfromtxt(comm_file, delimiter='\t', dtype="|S")
     left = numpy.genfromtxt(left_file, delimiter='\t', dtype="|S")
     right = numpy.genfromtxt(right_file, delimiter='\t', dtype="|S")
@@ -114,7 +114,13 @@ location_per_cluster = location_csv[1:, args.column-1]
 ROI_indices = []
 for r_idx in range(num_regions):
     region = region_list[r_idx]
-    if region.find(args.tract) >= 0:
+
+    if args.tract.find('cc') >= 0:
+        tract = args.tract
+    else:
+        tract = args.tract + '.'
+
+    if region.find(tract) >= 0:
         ROI_indices.append(r_idx)
 print 'Tracts of interest:', args.tract, ROI_indices,  len(ROI_indices)
 # #

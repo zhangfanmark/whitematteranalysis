@@ -103,7 +103,7 @@ if not load_previous:
 
     def list_fc_folders(input_dir, hemi, folder_name):
         # Find input files
-        input_mask = ("{0}/*"+folder_name+"*/"+hemi).format(input_dir)
+        input_mask = ("{0}/*"+folder_name+"sep*/"+hemi).format(input_dir)
         input_fc_folders = glob.glob(input_mask)
         input_fc_folders = sorted(input_fc_folders)
         return (input_fc_folders)

@@ -87,7 +87,7 @@ output_str += '\n'
 
 for pd_cluster_path in pd_cluster_paths:
     cluster_name = os.path.split(pd_cluster_path)[1][:13]
-
+    print cluster_name
     cluster_str_list = [''] * (len(region_list) + 1)
     if any(cluster_name in s for s in wmql_clusters):
         print '-', cluster_name, ':',

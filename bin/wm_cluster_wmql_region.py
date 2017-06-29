@@ -60,7 +60,7 @@ num_subjects = len(region_per_subject_comm_paths)
 
 target_tracts = [1]
 target_tracts += range(3,10) # cc
-target_tracts += range(45,85) # others
+target_tracts += range(45,87) # others
 
 region_per_subject_comm_list = []
 region_per_subject_left_list = []
@@ -185,7 +185,7 @@ def region_of_one_cluster_OLD(region_per_subject_list, c_sub_idx, num_subjects, 
 
     return result_region_index
 
-def region_of_one_cluster(region_per_subject_list, c_sub_idx, num_subjects, num_regions, th_fb=0.1, th_sub=0.1):
+def region_of_one_cluster(region_per_subject_list, c_sub_idx, num_subjects, num_regions, th_fb=0.1, th_sub=0.5):
     subject_region_matrix_of_one_cluster = numpy.zeros((num_subjects, num_regions))
     subject_fiber_number_matrix_of_one_cluster = numpy.zeros((num_subjects, num_regions))
     subject_fiber_number_matrix_of_one_cluster.fill(numpy.nan)
@@ -249,22 +249,22 @@ for c_idx in range(num_clusters):
         result_region_index_left, mean_fiber_percentage_left = region_of_one_cluster(region_per_subject_left_list, c_idx, num_subjects, num_regions)
         result_region_index_righ, mean_fiber_percentage_righ = region_of_one_cluster(region_per_subject_right_list, c_idx, num_subjects, num_regions)
 
-        if result_region_index_left == ROI_indices[0] and result_region_index_righ == ROI_indices[1]:
+        if result_region_index_left == ROI_indices[0] or result_region_index_righ == ROI_indices[1]:
             print cluster_name, 'from', location_per_cluster[c_idx]
+
+            result_cluster_list.append(c_idx)
 
             if result_region_index_left is not None:
                 print "%15s %8s %8s " % (region_list[result_region_index_left],result_region_index_left, mean_fiber_percentage_left),
+                mean_fiber_percentage_list.append(mean_fiber_percentage_left)
             else:
                 print "%15s %8s %8s" % (None, None, None),
 
             if result_region_index_righ is not None:
                 print "%15s %8s %8s" % (region_list[result_region_index_righ],result_region_index_righ, mean_fiber_percentage_righ)
+                mean_fiber_percentage_list.append(mean_fiber_percentage_righ)
             else:
                 print "%15s %8s %8s" % (None, None, None)
-
-            result_cluster_list.append(c_idx)
-            mean_fiber_percentage_list.append(mean_fiber_percentage_left)
-            mean_fiber_percentage_list.append(mean_fiber_percentage_righ)
 
             outstr = outstr + cluster_name + '\t' + str(mean_fiber_percentage_left) + '\t' + str(mean_fiber_percentage_righ) + '\t' + str(0) + '\n'
 

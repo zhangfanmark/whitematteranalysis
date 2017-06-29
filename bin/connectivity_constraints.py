@@ -356,11 +356,11 @@ def region_label(label):
     WM_Unsegmented = [5001, 5002]
 
     if label in right_WM_cortical_regions:
-        label = label - 3000
+        label = label - 2000
     elif label in left_WM_cortical_regions:
         label = label - 2000
     elif label in right_GM_cortical_regions:
-        label = label - 1000
+        label = label
     elif label in left_GM_cortical_regions:
         label = label
     elif label in CC_regions or label in commissural_sub_cortical_regions:
@@ -370,7 +370,7 @@ def region_label(label):
     elif label in left_sub_cortical_regions:
         label = label
     elif label in WM_Unsegmented:
-        label = 5001
+        label = label
     else:
         label = 0
 

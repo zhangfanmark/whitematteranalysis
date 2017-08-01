@@ -222,12 +222,14 @@ if args.registerAtlasToSubjectSpace:
 # Cluster the data using clusters from the atlas
 #-----------------
 
-num_lines = input_data.GetNumberOfLines()
-fiber_mask = numpy.ones(num_lines)
-input_data_line_only = wma.filter.mask(input_data, fiber_mask, preserve_point_data=False, preserve_cell_data=False, verbose=False)
+# num_lines = input_data.GetNumberOfLines()
+# fiber_mask = numpy.ones(num_lines)
+# input_data_line_only = wma.filter.mask(input_data, fiber_mask, preserve_point_data=False, preserve_cell_data=False, verbose=False)
+
+input_data_line_only = input_data
 
 output_polydata_s, cluster_numbers_s, color, embed = \
-    wma.cluster.spectral_atlas_label(input_data_line_only, atlas, number_of_jobs=number_of_jobs)
+    wma.cluster.spectral_atlas_label(input_data_line_only, atlas, number_of_jobs=number_of_jobs, tmp_folder=os.path.join(outdir, 'tmp'))
 
 output_polydata_s = input_data
 

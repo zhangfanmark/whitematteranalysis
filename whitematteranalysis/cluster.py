@@ -584,7 +584,7 @@ def view_cluster_number(input_polydata, cluster_number, cluster_indices=None):
 
     return ren
 
-def spectral_atlas_label(input_polydata, atlas, number_of_jobs=2):
+def spectral_atlas_label(input_polydata, atlas, number_of_jobs=2, tmp_folder=None):
     """ Use an existing atlas to label a new polydata.
 
     Returns the cluster indices for all the fibers. output_polydata, cluster_numbers, color, embed = wma.cluster.spectral_atlas_label(input_data, atlas)
@@ -593,12 +593,16 @@ def spectral_atlas_label(input_polydata, atlas, number_of_jobs=2):
 
     number_fibers = input_polydata.GetNumberOfLines()
     sz = atlas.nystrom_polydata.GetNumberOfLines()
-    
+
     # 1) Compute fiber similarities.
-    B = \
-        _rectangular_similarity_matrix(input_polydata, atlas.nystrom_polydata, 
-                                       atlas.threshold, atlas.sigma, number_of_jobs, distance_method=atlas.distance_method,
-                                       bilateral=atlas.bilateral)
+    if tmp_folder is not None and os.path.exists(os.path.join(tmp_folder, 'B.npy')):
+        print 'Loading B.npy', tmp_folder
+        B = numpy.load(os.path.join(tmp_folder, 'B.npy'))
+    else:
+        B = \
+            _rectangular_similarity_matrix(input_polydata, atlas.nystrom_polydata,
+                                           atlas.threshold, atlas.sigma, number_of_jobs, distance_method=atlas.distance_method,
+                                           bilateral=atlas.bilateral)
 
     # 2) Do Normalized Cuts transform of similarity matrix.
     # row sum estimate for current B part of the matrix
@@ -616,15 +620,41 @@ def spectral_atlas_label(input_polydata, atlas, number_of_jobs=2):
     row_sum = numpy.concatenate((atlas.row_sum_1, row_sum_2))
     dhat = numpy.sqrt(numpy.divide(1, row_sum))
     #dhat = numpy.sqrt(numpy.divide(1, numpy.concatenate((atlas.row_sum_1, row_sum_2))))
-    B = \
-        numpy.multiply(B, numpy.outer(dhat[0:sz], dhat[sz:].T))
 
+    #B_ = numpy.multiply(B, numpy.outer(dhat[0:sz], dhat[sz:].T))
+
+    tmp_outer = numpy.outer(dhat[0:sz], dhat[sz:].T)
+    # print tmp_outer.shape
+    # print B.shape
+    for r in range(B.shape[0]):
+        B[r, :] = numpy.multiply(B[r, :], tmp_outer[r, :])
+
+    del tmp_outer
     # 3) Compute eigenvectors for use in spectral embedding
     # <done already in atlas creation>
 
     # 4) Compute embedding using eigenvectors
-    V = numpy.dot(numpy.dot(B.T, atlas.e_vec), \
-                      numpy.diag(numpy.divide(1.0, atlas.e_val)))
+    print B.T.shape
+    print atlas.e_vec.shape
+
+    BT_e_dot_ = numpy.dot(B.T, atlas.e_vec)
+
+    BT_e_dot = []
+    for r in range(B.T.shape[0]):
+        BT_e_dot.append(numpy.dot(B.T[r, :], atlas.e_vec))
+
+    #print BT_e_dot
+    BT_e_dot = numpy.concatenate(BT_e_dot, axis=1)
+
+    print BT_e_dot_
+    print BT_e_dot
+    print BT_e_dot - BT_e_dot_
+
+    tmp_diag = numpy.diag(numpy.divide(1.0, atlas.e_val))
+    V = numpy.dot(BT_e_dot, tmp_diag)
+
+    print V.shape
+    exit()
     V = numpy.divide(V, atlas.e_vec_norm)
     embed = numpy.zeros((number_fibers, atlas.number_of_eigenvectors))
     for i in range(0, atlas.number_of_eigenvectors):

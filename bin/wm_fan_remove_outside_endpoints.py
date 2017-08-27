@@ -33,23 +33,30 @@ parser.add_argument(
     help='Label map file in nifti (default for freesurfer result).')
 parser.add_argument(
     'outputDirectory',
-    help='Directory of output transformed results.')
+    help='Directory of EP removed results.')
 parser.add_argument(
     '-r', type=int, dest="regionList", nargs='+', default=[0],
     help='regions to remove, e.g. 0')
 parser.add_argument(
     '-j', action="store", dest="numberOfJobs", type=int, default=1,
     help='Number of processors to use.')
+parser.add_argument(
+    '-removeData', action='store_true',
+    help='Remove all data if given')
 args = parser.parse_args()
 
 if not os.path.exists(args.input):
     print "Error: Input directory", args.input, "does not exist."
     exit()
 
-pd_tract_list = wma.io.list_vtk_files(args.input)
-if len(pd_tract_list) == 0:
-    print "Error: No cluster files found."
-    exit()
+if os.path.isdir(args.input):
+    pd_tract_list = wma.io.list_vtk_files(args.input)
+    if len(pd_tract_list) == 0:
+        print "Error: No cluster files found."
+        exit()
+else:
+    pd_tract_list = []
+    pd_tract_list.append(args.input)
 
 outdir = os.path.abspath(args.outputDirectory)
 if not os.path.exists(args.outputDirectory):
@@ -253,8 +260,8 @@ def remove_endpoints(inpd, mask, region_to_remove, preserve_cell_data=True, pres
                         outpd.GetPointData().GetArray(idx).InsertNextTuple(array.GetTuple(ptids.GetId(pidx)))
 
         if verbose:
-            print 'Line:', lidx, ', before removal:', num_points_before, ', after removal:', num_points_kept
-
+            print 'Line:', lidx, ', before removal:', num_points_before, ', after removal:', num_points_kept,
+            print ', point removed:', num_points_before - num_points_kept
         outlines.InsertNextCell(cellptids)
 
         if preserve_cell_data:
@@ -269,7 +276,7 @@ def remove_endpoints(inpd, mask, region_to_remove, preserve_cell_data=True, pres
 
     return outpd
 
-def run_one_cluster(pd_tract_path, ourdir, lb, regionList):
+def run_one_cluster(pd_tract_path, ourdir, lb, regionList, removeData):
 
     cluster_file_name = os.path.split(pd_tract_path)[1]
 
@@ -279,7 +286,7 @@ def run_one_cluster(pd_tract_path, ourdir, lb, regionList):
     print cluster_file_name, ", fiber number:", '{0:05d}'.format(num_fibers)
 
     print ' - point number before:', pd_tract.GetNumberOfPoints(),
-    pd_tract_removed = remove_endpoints(pd_tract, lb, regionList)
+    pd_tract_removed = remove_endpoints(pd_tract, lb, regionList, preserve_point_data = not removeData, preserve_cell_data = not removeData, verbose=True)
     print ', point number after:', pd_tract_removed.GetNumberOfPoints()
 
     wma.io.write_polydata(pd_tract_removed, os.path.join(outdir, cluster_file_name))
@@ -300,7 +307,7 @@ def run_one_cluster(pd_tract_path, ourdir, lb, regionList):
 #     wma.io.write_polydata(pd_tract_removed, os.path.join(args.outputDirectory, cluster_file_name))
 
 Parallel(n_jobs=args.numberOfJobs, verbose=1)(
-            delayed(run_one_cluster)(pd_tract_path, args.outputDirectory, lb, args.regionList)
+            delayed(run_one_cluster)(pd_tract_path, args.outputDirectory, lb, args.regionList, args.removeData)
             for pd_tract_path in pd_tract_list)
 
 print 'Done!'

@@ -169,11 +169,9 @@ for fname, c_idx in zip(input_polydatas, range(len(input_polydatas))):
         pd_left = pd
         pd_commissure = pd
 
-        print ' - fiber number: left %5d - right %5d - comm %5d' % (0, 0, 0)
-
     else:
         if clusterLocationFile is None:
-            hemisphere_percent_threshold = 0.6
+            hemisphere_percent_threshold = 0.6 # default
 
             # internal representation for fast similarity computation
             # this also detects which hemisphere fibers are in
@@ -201,8 +199,6 @@ for fname, c_idx in zip(input_polydatas, range(len(input_polydatas))):
             mask_commissure[fibers.index_commissure] = 1
             pd_commissure = wma.filter.mask(pd, mask_commissure, preserve_point_data=True, preserve_cell_data=True, verbose=False)
 
-            print ' - fiber number: left %5d - right %5d - comm %5d' % (len(fibers.index_left_hem), len(fibers.index_right_hem), len(fibers.index_commissure))
-
         else:
             if location_data[c_idx][1] == 'c' or location_data[c_idx][1] == 'ng':
                 comm_list.append(fname_base)
@@ -210,8 +206,6 @@ for fname, c_idx in zip(input_polydatas, range(len(input_polydatas))):
                 pd_right = vtk.vtkPolyData()
                 pd_left = vtk.vtkPolyData()
                 pd_commissure = pd
-
-                print ' - fiber number: left %5d - right %5d - comm %5d' % (0, 0, pd.GetNumberOfLines())
 
             elif location_data[c_idx][1] == 'h':
                 hemisphere_percent_threshold = 0.5001
@@ -233,26 +227,33 @@ for fname, c_idx in zip(input_polydatas, range(len(input_polydatas))):
                 # -------------------------
                 mask_right = numpy.zeros(pd.GetNumberOfLines())
                 mask_right[fibers.index_right_hem] = 1
-                pd_right = wma.filter.mask(pd, mask_right, preserve_point_data=True, preserve_cell_data=True, verbose=False)
 
                 mask_left = numpy.zeros(pd.GetNumberOfLines())
                 mask_left[fibers.index_left_hem] = 1
+              
+                if len(fibers.index_commissure) > 0:
+                    if len(fibers.index_left_hem) <= len(fibers.index_right_hem):
+                        mask_left[fibers.index_commissure] = 1
+                    else:
+                        mask_right[fibers.index_commissure] = 1
+
+                pd_right = wma.filter.mask(pd, mask_right, preserve_point_data=True, preserve_cell_data=True, verbose=False)
                 pd_left = wma.filter.mask(pd, mask_left, preserve_point_data=True, preserve_cell_data=True, verbose=False)
+                pd_commissure = vtk.vtkPolyData()
 
-                mask_commissure = numpy.zeros(pd.GetNumberOfLines())
-                mask_commissure[fibers.index_commissure] = 1
-                pd_commissure = wma.filter.mask(pd, mask_commissure, preserve_point_data=True, preserve_cell_data=True, verbose=False)
+                #mask_commissure = numpy.zeros(pd.GetNumberOfLines())
+                #mask_commissure[fibers.index_commissure] = 1
+                #pd_commissure = wma.filter.mask(pd, mask_commissure, preserve_point_data=True, preserve_cell_data=True, verbose=False)
 
-                print ' - fiber number: left %5d - right %5d - comm %5d' % (len(fibers.index_left_hem), len(fibers.index_right_hem), len(fibers.index_commissure))
+    print ' - fiber number: left %5d - right %5d - comm %5d' % (pd_left.GetNumberOfLines(), pd_right.GetNumberOfLines(), pd_commissure.GetNumberOfLines())
 
-        # output polydatas into the appropriate subdirectories
-        fname_output = os.path.join(outdir_right, fname_base)
-        wma.io.write_polydata(pd_right, fname_output)
-        fname_output = os.path.join(outdir_left, fname_base)
-        wma.io.write_polydata(pd_left, fname_output)
-        fname_output = os.path.join(outdir_commissure, fname_base)
-        wma.io.write_polydata(pd_commissure, fname_output)
-
+    # output polydatas into the appropriate subdirectories
+    fname_output = os.path.join(outdir_right, fname_base)
+    wma.io.write_polydata(pd_right, fname_output)
+    fname_output = os.path.join(outdir_left, fname_base)
+    wma.io.write_polydata(pd_left, fname_output)
+    fname_output = os.path.join(outdir_commissure, fname_base)
+    wma.io.write_polydata(pd_commissure, fname_output)
 
 def output_mrml(cluster_list, mrml_filename):
     number_of_files = len(cluster_list)

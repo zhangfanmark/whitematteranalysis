@@ -45,6 +45,10 @@ if not os.path.isdir(args.inputDirectory):
     print "<wm_access_cluster_location.py> Error: Input directory", args.inputDirectory, "does not exist or is not a directory."
     exit()
 
+if os.path.exists(os.path.join(args.inputDirectory, 'cluster_hemisphere_location.txt')):
+    print "<wm_access_cluster_location.py> cluster_hemisphere_location.txt exists. Please remove to rerun."
+    print "<wm_access_cluster_location.py> rm", os.path.join(args.inputDirectory, 'cluster_hemisphere_location.txt')
+    exit()
 
 print "<wm_access_cluster_location.py> Starting computation."
 print ""
@@ -304,7 +308,6 @@ for fname in input_polydatas:
         cluster_location_list.append('ng')
         BS_related_list.append('No')
         outstr = outstr + fname_base + '\t' + 'ng' + '\n'
-
         continue
 
     # get region label

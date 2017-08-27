@@ -141,7 +141,7 @@ def _calculate_line_indices(input_line_length, output_line_length):
 
     return ptlist
 
-def get_label_array(input_data, verbose=True):
+def get_label_array(input_data, verbose=False):
 
     input_data.GetLines().InitTraversal()
     num_fibers = input_data.GetNumberOfLines()
@@ -152,11 +152,33 @@ def get_label_array(input_data, verbose=True):
     if verbose:
         print 'Total fiber number in the atlas:', num_fibers, ', point number in the atlas:', num_points
 
+    label_array = None
     if inpointsdata.GetNumberOfArrays() > 0:
         point_data_array_indices = range(inpointsdata.GetNumberOfArrays())
         for idx in point_data_array_indices:
             array = inpointsdata.GetArray(idx)
             if array.GetName().lower() == 'region_label':
+                label_array = array
+
+    return label_array
+
+def get_subject_ID(input_data, verbose=False):
+
+    input_data.GetLines().InitTraversal()
+    num_fibers = input_data.GetNumberOfLines()
+    inpoints = input_data.GetPoints()
+    inpointsdata = input_data.GetPointData()
+    num_points = inpoints.GetNumberOfPoints()
+
+    if verbose:
+        print 'Total fiber number in the atlas:', num_fibers, ', point number in the atlas:', num_points
+
+    label_array = None
+    if inpointsdata.GetNumberOfArrays() > 0:
+        point_data_array_indices = range(inpointsdata.GetNumberOfArrays())
+        for idx in point_data_array_indices:
+            array = inpointsdata.GetArray(idx)
+            if array.GetName().lower() == 'subject_id':
                 label_array = array
 
     return label_array
@@ -356,11 +378,11 @@ def region_label(label):
     WM_Unsegmented = [5001, 5002]
 
     if label in right_WM_cortical_regions:
-        label = label - 2000
+        label = label - 2000 - 1000
     elif label in left_WM_cortical_regions:
         label = label - 2000
     elif label in right_GM_cortical_regions:
-        label = label
+        label = label - 1000
     elif label in left_GM_cortical_regions:
         label = label
     elif label in CC_regions or label in commissural_sub_cortical_regions:
@@ -370,7 +392,7 @@ def region_label(label):
     elif label in left_sub_cortical_regions:
         label = label
     elif label in WM_Unsegmented:
-        label = label
+        label = 5001
     else:
         label = 0
 

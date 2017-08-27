@@ -28,7 +28,7 @@ parser = argparse.ArgumentParser(
     version='1.0')
 
 parser.add_argument(
-    'inputDirectory',
+    'input',
     help='Contains whole-brain tractography as vtkPolyData file(s).')
 parser.add_argument(
     'outputDirectory',
@@ -42,12 +42,15 @@ parser.add_argument(
 parser.add_argument(
     '-j', action="store", dest="numberOfJobs", type=int,
     help='Number of processors to use.')
+parser.add_argument(
+    '-save_data', action='store_true', dest="save_data",
+    help='Save along tract data or not')
 
 args = parser.parse_args()
 
 
-if not os.path.isdir(args.inputDirectory):
-    print "Error: Input directory", args.inputDirectory, "does not exist."
+if not os.path.exists(args.input):
+    print "Error: Input directory", args.input, "does not exist."
     exit()
 
 outdir = args.outputDirectory
@@ -57,7 +60,7 @@ if not os.path.exists(outdir):
 
 print "wm_laterality. Starting white matter laterality computation."
 print ""
-print "=====input directory======\n", args.inputDirectory
+print "=====input directory======\n", args.input
 print "=====output directory=====\n", args.outputDirectory
 print "=========================="
 
@@ -86,7 +89,12 @@ print "=========================="
 # =======================================================================
 
 # Loop over input DWIs
-inputPolyDatas = wma.io.list_vtk_files(args.inputDirectory)
+if os.path.isdir(args.input):
+    inputPolyDatas = wma.io.list_vtk_files(args.input)
+else:
+    inputPolyDatas = []
+    inputPolyDatas.append(args.input)
+
 
 print "<wm_preprocess.py> Input number of files: ", len(inputPolyDatas)
 
@@ -122,7 +130,7 @@ def pipeline(inputPolyDatas, sidx, args):
     if args.fiberLength is not None:
         msg = "**Preprocessing:", subjectID
         print(id_msg + msg)
-        wm2 = wma.filter.preprocess(wm, args.fiberLength, preserve_point_data=True, preserve_cell_data=True, verbose=False)
+        wm2 = wma.filter.preprocess(wm, args.fiberLength, preserve_point_data=args.save_data, preserve_cell_data=args.save_data, verbose=False)
         print "Number of fibers retained (length threshold", args.fiberLength, "): ", wm2.GetNumberOfLines(), "/", num_lines
 
     if wm2 is None:
@@ -138,7 +146,7 @@ def pipeline(inputPolyDatas, sidx, args):
         print(id_msg + msg)
 
         # , preserve_point_data=True needs editing of preprocess function to use mask function
-        wm3 = wma.filter.downsample(wm2, args.numberOfFibers, preserve_point_data=True, preserve_cell_data=True, verbose=False)
+        wm3 = wma.filter.downsample(wm2, args.numberOfFibers, preserve_point_data=args.save_data, preserve_cell_data=args.save_data, verbose=False)
         print "Number of fibers retained: ", wm3.GetNumberOfLines(), "/", num_lines
 
     if wm3 is None:

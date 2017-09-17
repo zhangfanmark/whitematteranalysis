@@ -62,7 +62,7 @@ def get_along_tract_region(input_data, verbose=True):
             # do nearest neighbor interpolation: round index
             ptidx = line_ptids.GetId(int(round(line_index)))
             array_label = label_array.GetTuple(ptidx)[0]
-            array_label = region_label(array_label)
+            array_label = region_label_LR(array_label)
 
             region_one_fiber.append(array_label)
 
@@ -361,8 +361,47 @@ def _by_one_endpoint(input_data, outdir):
     return connectivity
 
 
-def region_label(label):
+def region_label_GW(label):
 
+    # combine WM and GM
+    left_sub_cortical_regions = [2, 7, 8, 10, 11, 12, 13, 17, 18, 26, 28]
+    right_sub_cortical_regions = [41, 46, 47, 49, 50, 51, 52, 53, 54, 58, 60]
+
+    left_GM_cortical_regions = range(1001, 1036)
+    right_GM_cortical_regions = range(2001, 2036)
+
+    left_WM_cortical_regions = range(3001, 3036)
+    right_WM_cortical_regions = range(4001, 4036)
+
+    CC_regions = range(251, 256)
+    commissural_sub_cortical_regions = [16, 77, 85]
+
+    WM_Unsegmented = [5001, 5002]
+
+    if label in right_WM_cortical_regions:
+        label = label - 2000
+    elif label in left_WM_cortical_regions:
+        label = label - 2000
+    elif label in right_GM_cortical_regions:
+        label = label
+    elif label in left_GM_cortical_regions:
+        label = label
+    elif label in CC_regions or label in commissural_sub_cortical_regions:
+        label = label
+    elif label in right_sub_cortical_regions:
+        label = label
+    elif label in left_sub_cortical_regions:
+        label = label
+    elif label in WM_Unsegmented:
+        label = label
+    else:
+        label = 0
+
+    return label
+
+def region_label_LR(label):
+
+    # combine left and right
     left_sub_cortical_regions = [2, 7, 8, 10, 11, 12, 13, 17, 18, 26, 28]
     right_sub_cortical_regions = [41, 46, 47, 49, 50, 51, 52, 53, 54, 58, 60]
 

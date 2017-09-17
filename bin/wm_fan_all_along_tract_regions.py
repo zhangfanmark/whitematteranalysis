@@ -29,7 +29,7 @@ parser.add_argument(
     '-th_oc', type=float, default=0.5,
     help='if a cluster connects to a region in a subject')
 parser.add_argument(
-    '-th_sub', type=float, default=0.09,
+    '-th_sub', type=float, default=0.9,
     help='if a cluster connects to a region across subjects')
 
 args = parser.parse_args()
@@ -58,6 +58,10 @@ for comm_file, left_file, right_file in zip(region_per_subject_comm_paths, regio
     comm = comm[1:, 1:]
     left = left[1:, 1:]
     right = right[1:, 1:]
+
+    if comm.shape[0] / 2 < 800:
+        print comm_file.replace('_commissural.txt', '*')
+        exit()
 
     region_per_subject_comm_list.append(comm)
     region_per_subject_left_list.append(left)

@@ -158,32 +158,6 @@ def calculate_all_regions(pd_cluster):
 
     return str_occurrence
 
-
-def calculate_pairwise_dice(pd_cluster):
-    num_fibers = pd_cluster.GetNumberOfLines()
-
-    mean_pairwise_dice = 0
-    if num_fibers > 0:
-        along_tract_regions = connectivity_constraints.get_along_tract_region(pd_cluster, verbose=False)
-
-        dice_all_pairs = []
-        for r_idx_1 in range(0, len(along_tract_regions), 5):
-            r_1 = along_tract_regions[r_idx_1]
-            for r_idx_2 in range(r_idx_1, len(along_tract_regions), 5):
-                r_2 = along_tract_regions[r_idx_2]
-
-                try:
-                    dice_one_pair = len(numpy.intersect1d(r_1, r_2)) * 2.0  / (len(r_1) + len(r_2))
-                except:
-                    print 'len(r_1) and len(r_2) are zeros.'
-                    continue
-                dice_all_pairs.append(dice_one_pair)
-
-        mean_pairwise_dice = numpy.mean(dice_all_pairs)
-        print ' - Mean pairwise dice:', mean_pairwise_dice
-        
-    return mean_pairwise_dice
-
 ###################################################################
 
 inputdir = os.path.abspath(args.inputDirectory)
@@ -213,7 +187,6 @@ outstr_distances = 'Cluster Index' + '\t'+ 'Mean Intra-cluster Distance' + '\t' 
 outstr_endpoints = 'Cluster Index' + '\t'+ 'Endpoint FS Dice Score' + '\t' + 'Regions' + '\n'
 outstr_along_tract = 'Cluster Index' + '\t'+ 'Along-tract FS Dice Score' + '\t' + 'Regions' + '\n'
 outstr_all_region_occurrence = 'Cluster Index' + '\t'+ 'Region Occurrence' + '\n'
-outstr_pairwise_dice = 'Cluster Index' + '\t'+ 'Pairwise Dice' + '\n'
 
 
 for cluster_path in cluster_paths:
@@ -239,12 +212,8 @@ for cluster_path in cluster_paths:
     # mean_along_tract_percent, std_along_tract_percent, tract_regions = calculate_along_tract(pd_cluster)
     # outstr_along_tract = outstr_along_tract + cluster_file_name + '\t' + str(mean_along_tract_percent) + '\t' + numpy.array_str(tract_regions) + '\n'
 
-    # region_str = calculate_all_regions(pd_cluster)
-    # outstr_all_region_occurrence = outstr_all_region_occurrence + cluster_file_name + '\t' + region_str + '\n'
-
-    mean_pairwise_dice = calculate_pairwise_dice(pd_cluster)
-    outstr_pairwise_dice = outstr_pairwise_dice + cluster_file_name + '\t' + str(mean_pairwise_dice) + '\n'
-
+    region_str = calculate_all_regions(pd_cluster)
+    outstr_all_region_occurrence = outstr_all_region_occurrence + cluster_file_name + '\t' + region_str + '\n'
 
 #
 # output_file = open(os.path.join(inputdir, 'Stat_FiberNumber.txt'), 'w')
@@ -267,13 +236,7 @@ for cluster_path in cluster_paths:
 # output_file.write(outstr_along_tract)
 # output_file.close()
 #
-# output_file = open(os.path.join(inputdir, 'Stat_AllRegionOccurrence.txt'), 'w')
-# output_file.write(outstr_all_region_occurrence)
-# output_file.close()
 
-output_file = open(os.path.join(inputdir, 'Stat_PariwiseDice.txt'), 'w')
-output_file.write(outstr_pairwise_dice)
+output_file = open(os.path.join(inputdir, 'Stat_AllRegionOccurrence.txt'), 'w')
+output_file.write(outstr_all_region_occurrence)
 output_file.close()
-
-
-

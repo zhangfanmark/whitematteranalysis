@@ -135,54 +135,18 @@ def calculate_number_of_subjects(pd_cluster):
 
     return number_of_subjects
 
-def calculate_all_regions(pd_cluster):
+def calculate_all_regions_on_cluster(pd_cluster):
     num_fibers = pd_cluster.GetNumberOfLines()
 
-    str_occurrence = ''
     if num_fibers > 0:
-
         along_tract_regions = connectivity_constraints.get_along_tract_region(pd_cluster, verbose=False)
+
         all_regions_all_fibers = numpy.concatenate(along_tract_regions).astype(int)
 
+        for r_idx in range(all_regions_all_fibers.shape[0]):
+            all_regions_all_fibers[r_idx] = connectivity_constraints.region_label(all_regions_all_fibers[r_idx])
+
         unique_regions = numpy.unique(all_regions_all_fibers)
-        region_occurrence = numpy.bincount(all_regions_all_fibers)[unique_regions]
-
-        idx = numpy.argsort(-region_occurrence)
-        region_occurrence = region_occurrence[idx]
-        unique_regions = unique_regions[idx]
-
-        for r_l, r_o in zip(unique_regions, region_occurrence):
-            str_occurrence += str(r_l) + ':' + str(r_o) + ','
-
-    print ' - Region occurrence:', str_occurrence
-
-    return str_occurrence
-
-
-def calculate_pairwise_dice(pd_cluster):
-    num_fibers = pd_cluster.GetNumberOfLines()
-
-    mean_pairwise_dice = 0
-    if num_fibers > 0:
-        along_tract_regions = connectivity_constraints.get_along_tract_region(pd_cluster, verbose=False)
-
-        dice_all_pairs = []
-        for r_idx_1 in range(0, len(along_tract_regions), 5):
-            r_1 = along_tract_regions[r_idx_1]
-            for r_idx_2 in range(r_idx_1, len(along_tract_regions), 5):
-                r_2 = along_tract_regions[r_idx_2]
-
-                try:
-                    dice_one_pair = len(numpy.intersect1d(r_1, r_2)) * 2.0  / (len(r_1) + len(r_2))
-                except:
-                    print 'len(r_1) and len(r_2) are zeros.'
-                    continue
-                dice_all_pairs.append(dice_one_pair)
-
-        mean_pairwise_dice = numpy.mean(dice_all_pairs)
-        print ' - Mean pairwise dice:', mean_pairwise_dice
-        
-    return mean_pairwise_dice
 
 ###################################################################
 
@@ -195,7 +159,6 @@ print inputdir
 if os.path.exists(os.path.join(inputdir, 'Stat_IntraClusterDistance.txt')):
     print "\n Already Computed!!! \n"
     exit()
-
 
 def list_cluster_files(input_dir):
     # Find input files
@@ -212,9 +175,6 @@ outstr_num_subjects = 'Cluster Index' + '\t'+ 'Subject Number' + '\n'
 outstr_distances = 'Cluster Index' + '\t'+ 'Mean Intra-cluster Distance' + '\t' + 'Std' + '\n'
 outstr_endpoints = 'Cluster Index' + '\t'+ 'Endpoint FS Dice Score' + '\t' + 'Regions' + '\n'
 outstr_along_tract = 'Cluster Index' + '\t'+ 'Along-tract FS Dice Score' + '\t' + 'Regions' + '\n'
-outstr_all_region_occurrence = 'Cluster Index' + '\t'+ 'Region Occurrence' + '\n'
-outstr_pairwise_dice = 'Cluster Index' + '\t'+ 'Pairwise Dice' + '\n'
-
 
 for cluster_path in cluster_paths:
 
@@ -223,57 +183,40 @@ for cluster_path in cluster_paths:
 
     pd_cluster = wma.io.read_polydata(cluster_path)
 
-    # num_fibers = pd_cluster.GetNumberOfLines()
-    # print ' - Number of fibers:', num_fibers
-    # outstr_num_fibers = outstr_num_fibers + cluster_file_name + '\t' + str(num_fibers) + '\n'
-    #
-    # number_of_subjects = calculate_number_of_subjects(pd_cluster)
-    # outstr_num_subjects = outstr_num_subjects + cluster_file_name + '\t' + str(number_of_subjects) + '\n'
+    num_fibers = pd_cluster.GetNumberOfLines()
+    print ' - Number of fibers:', num_fibers
+    outstr_num_fibers = outstr_num_fibers + cluster_file_name + '\t' + str(num_fibers) + '\n'
 
-    # mean_pairwise_distance, std_pairwise_distance = calculate_mean_pairwise_distance(pd_cluster)
-    # outstr_distances = outstr_distances + cluster_file_name + '\t' + str(mean_pairwise_distance) + '\t' + str(std_pairwise_distance) + '\n'
+    number_of_subjects = calculate_number_of_subjects(pd_cluster)
+    outstr_num_subjects = outstr_num_subjects + cluster_file_name + '\t' + str(number_of_subjects) + '\n'
 
-    # mean_endpoint_percent, top_two_labels = calculate_endpoint(pd_cluster)
-    # outstr_endpoints = outstr_endpoints + cluster_file_name + '\t' + str(mean_endpoint_percent) + '\t' + numpy.array_str(top_two_labels) + '\n'
-    #
-    # mean_along_tract_percent, std_along_tract_percent, tract_regions = calculate_along_tract(pd_cluster)
-    # outstr_along_tract = outstr_along_tract + cluster_file_name + '\t' + str(mean_along_tract_percent) + '\t' + numpy.array_str(tract_regions) + '\n'
+    mean_pairwise_distance, std_pairwise_distance = calculate_mean_pairwise_distance(pd_cluster)
+    outstr_distances = outstr_distances + cluster_file_name + '\t' + str(mean_pairwise_distance) + '\t' + str(std_pairwise_distance) + '\n'
 
-    # region_str = calculate_all_regions(pd_cluster)
-    # outstr_all_region_occurrence = outstr_all_region_occurrence + cluster_file_name + '\t' + region_str + '\n'
+    mean_endpoint_percent, top_two_labels = calculate_endpoint(pd_cluster)
+    outstr_endpoints = outstr_endpoints + cluster_file_name + '\t' + str(mean_endpoint_percent) + '\t' + numpy.array_str(top_two_labels) + '\n'
 
-    mean_pairwise_dice = calculate_pairwise_dice(pd_cluster)
-    outstr_pairwise_dice = outstr_pairwise_dice + cluster_file_name + '\t' + str(mean_pairwise_dice) + '\n'
+    mean_along_tract_percent, std_along_tract_percent, tract_regions = calculate_along_tract(pd_cluster)
+    outstr_along_tract = outstr_along_tract + cluster_file_name + '\t' + str(mean_along_tract_percent) + '\t' + numpy.array_str(tract_regions) + '\n'
 
 
-#
-# output_file = open(os.path.join(inputdir, 'Stat_FiberNumber.txt'), 'w')
-# output_file.write(outstr_num_fibers)
-# output_file.close()
-#
-# output_file = open(os.path.join(inputdir, 'Stat_SubjectNumber.txt'), 'w')
-# output_file.write(outstr_num_subjects)
-# output_file.close()
-#
-# output_file = open(os.path.join(inputdir, 'Stat_IntraClusterDistance.txt'), 'w')
-# output_file.write(outstr_distances)
-# output_file.close()
-#
-# output_file = open(os.path.join(inputdir, 'Stat_Endpoints.txt'), 'w')
-# output_file.write(outstr_endpoints)
-# output_file.close()
-#
-# output_file = open(os.path.join(inputdir, 'Stat_AlongTractRegions.txt'), 'w')
-# output_file.write(outstr_along_tract)
-# output_file.close()
-#
-# output_file = open(os.path.join(inputdir, 'Stat_AllRegionOccurrence.txt'), 'w')
-# output_file.write(outstr_all_region_occurrence)
-# output_file.close()
-
-output_file = open(os.path.join(inputdir, 'Stat_PariwiseDice.txt'), 'w')
-output_file.write(outstr_pairwise_dice)
+output_file = open(os.path.join(inputdir, 'Stat_FiberNumber.txt'), 'w')
+output_file.write(outstr_num_fibers)
 output_file.close()
 
+output_file = open(os.path.join(inputdir, 'Stat_SubjectNumber.txt'), 'w')
+output_file.write(outstr_num_subjects)
+output_file.close()
 
+output_file = open(os.path.join(inputdir, 'Stat_IntraClusterDistance.txt'), 'w')
+output_file.write(outstr_distances)
+output_file.close()
+
+output_file = open(os.path.join(inputdir, 'Stat_Endpoints.txt'), 'w')
+output_file.write(outstr_endpoints)
+output_file.close()
+
+output_file = open(os.path.join(inputdir, 'Stat_AlongTractRegions.txt'), 'w')
+output_file.write(outstr_along_tract)
+output_file.close()
 

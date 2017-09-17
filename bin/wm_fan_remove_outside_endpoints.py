@@ -69,7 +69,7 @@ if not os.path.exists(args.label_map_file):
 
 lb = nibabel.load(args.label_map_file)
 voxel_data = lb.get_data()
-print args.label_map_file, ', label volume shape: ', lb.get_data().shape\
+print args.label_map_file, ', label volume shape: ', lb.get_data().shape
 
 
 def CorrectStreamlines_From_YE(oldstreamlinesPolyData, mask_img):

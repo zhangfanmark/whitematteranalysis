@@ -40,7 +40,7 @@ def get_endpiont_region(input_data):
     return endpoint_regions
 
 
-def get_along_tract_region(input_data, verbose=True):
+def get_along_tract_region(input_data, combine_regions='LR', verbose=True):
 
     label_array = get_label_array(input_data, verbose=False)
 
@@ -62,7 +62,11 @@ def get_along_tract_region(input_data, verbose=True):
             # do nearest neighbor interpolation: round index
             ptidx = line_ptids.GetId(int(round(line_index)))
             array_label = label_array.GetTuple(ptidx)[0]
-            array_label = region_label_LR(array_label)
+
+            if combine_regions == 'LR':
+                array_label = region_label_LR(array_label)
+            elif combine_regions =='GW':
+                array_label = region_label_GW(array_label)
 
             region_one_fiber.append(array_label)
 

@@ -112,6 +112,13 @@ def command_harden_transform(polydata, transform, inverse, slicer_path, outdir):
     else:
         str_inverse = 0
 
+    polydata_base_path, polydata_name = os.path.split(polydata)
+    output_name = polydata_name.replace(".vtp", "")
+    output_name = output_name.replace(".vtk", "")
+    print output_name
+    if os.path.exists(os.path.join(outdir,output_name+'_trans.vtp')):
+        return
+
     print "<wm_harden_transform_with_slicer> Transforming:", polydata
     cmd = slicer_path + " --no-main-window --python-script $(which harden_transform_with_slicer.py) " + \
           polydata + " " + transform + " " + str(str_inverse) + " " + outdir + " --python-code 'slicer.app.quit()' " + \
@@ -129,11 +136,11 @@ if transform_way == 'multiple':
 else:
     print "======", transform_path, "will be applied to all inputs.\n"
 
-    command_harden_transform(inputdir, transform_path, inverse, slicer_path, outdir)
+    #command_harden_transform(inputdir, transform_path, inverse, slicer_path, outdir)
 
-    # Parallel(n_jobs=number_of_jobs, verbose=1)(
-    #     delayed(command_harden_transform)(polydata, transform_path, inverse, slicer_path, outdir)
-    #     for polydata in input_polydatas)
+    Parallel(n_jobs=number_of_jobs, verbose=1)(
+         delayed(command_harden_transform)(polydata, transform_path, inverse, slicer_path, outdir)
+         for polydata in input_polydatas)
 
 output_polydatas = wma.io.list_vtk_files(outdir)
 number_of_results = len(output_polydatas)

@@ -46,7 +46,7 @@ parser.add_argument(
 args = parser.parse_args()
 
 if not os.path.exists(args.input):
-    print "Error: Input directory", args.input, "does not exist."
+    print "Error: Input", args.input, "does not exist."
     exit()
 
 if os.path.isdir(args.input):
@@ -64,8 +64,8 @@ if not os.path.exists(args.outputDirectory):
     os.makedirs(outdir)
 
 if not os.path.exists(args.label_map_file):
-    print "Label map", args.outputDirectory, "does not exist, creating it."
-    os.makedirs(outdir)
+    print "Label map", args.label_map_file, "does not exist."
+    exit()
 
 lb = nibabel.load(args.label_map_file)
 voxel_data = lb.get_data()

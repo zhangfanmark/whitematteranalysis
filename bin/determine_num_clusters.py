@@ -223,9 +223,9 @@ for cluster_path in cluster_paths:
 
     pd_cluster = wma.io.read_polydata(cluster_path)
 
-    # num_fibers = pd_cluster.GetNumberOfLines()
-    # print ' - Number of fibers:', num_fibers
-    # outstr_num_fibers = outstr_num_fibers + cluster_file_name + '\t' + str(num_fibers) + '\n'
+    num_fibers = pd_cluster.GetNumberOfLines()
+    print ' - Number of fibers:', num_fibers
+    outstr_num_fibers = outstr_num_fibers + cluster_file_name + '\t' + str(num_fibers) + '\n'
     #
     # number_of_subjects = calculate_number_of_subjects(pd_cluster)
     # outstr_num_subjects = outstr_num_subjects + cluster_file_name + '\t' + str(number_of_subjects) + '\n'
@@ -242,14 +242,14 @@ for cluster_path in cluster_paths:
     # region_str = calculate_all_regions(pd_cluster)
     # outstr_all_region_occurrence = outstr_all_region_occurrence + cluster_file_name + '\t' + region_str + '\n'
 
-    mean_pairwise_dice = calculate_pairwise_dice(pd_cluster)
-    outstr_pairwise_dice = outstr_pairwise_dice + cluster_file_name + '\t' + str(mean_pairwise_dice) + '\n'
+    # mean_pairwise_dice = calculate_pairwise_dice(pd_cluster)
+    # outstr_pairwise_dice = outstr_pairwise_dice + cluster_file_name + '\t' + str(mean_pairwise_dice) + '\n'
 
 
 #
-# output_file = open(os.path.join(inputdir, 'Stat_FiberNumber.txt'), 'w')
-# output_file.write(outstr_num_fibers)
-# output_file.close()
+output_file = open(os.path.join(inputdir, 'Stat_FiberNumber.txt'), 'w')
+output_file.write(outstr_num_fibers)
+output_file.close()
 #
 # output_file = open(os.path.join(inputdir, 'Stat_SubjectNumber.txt'), 'w')
 # output_file.write(outstr_num_subjects)
@@ -271,9 +271,9 @@ for cluster_path in cluster_paths:
 # output_file.write(outstr_all_region_occurrence)
 # output_file.close()
 
-output_file = open(os.path.join(inputdir, 'Stat_PariwiseDice.txt'), 'w')
-output_file.write(outstr_pairwise_dice)
-output_file.close()
+# output_file = open(os.path.join(inputdir, 'Stat_PariwiseDice.txt'), 'w')
+# output_file.write(outstr_pairwise_dice)
+# output_file.close()
 
 
 

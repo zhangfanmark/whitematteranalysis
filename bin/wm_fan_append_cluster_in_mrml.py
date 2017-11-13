@@ -5,14 +5,14 @@ import vtk
 try:
     import whitematteranalysis as wma
 except:
-    print "<wm_append_cluster.py> Error importing white matter analysis package\n"
+    print "Error importing white matter analysis package\n"
     raise
 
 #-----------------
 # Parse arguments
 #-----------------
 parser = argparse.ArgumentParser(
-    description="Append multiple fiber clusters into one cluster.",
+    description="Append multiple fiber clusters defined in a MRML file into one fiber tract.",
     epilog="Written by Fan Zhang, fzhang@bwh.harvard.edu",
     version='1.0')
 
@@ -24,7 +24,7 @@ parser.add_argument(
     help='The output directory should be a new empty directory. It will be created if needed.')
 parser.add_argument(
     '-tractMRML', dest="tractMRML", 
-    help='mrml file that contains the cluster id')
+    help='A MRML file that contains the cluster id')
 
 args = parser.parse_args()
 
@@ -78,6 +78,6 @@ pd_appended_cluster = appender.GetOutput()
 output_file = os.path.split(args.tractMRML)[1][:-5] + '.vtp'
 wma.io.write_polydata(pd_appended_cluster, os.path.join(outdir, output_file))
 
-print '<wm_append_cluster> Appended clusters , number of fibers', pd_appended_cluster.GetNumberOfLines()
+print 'Appended clusters , number of fibers', pd_appended_cluster.GetNumberOfLines()
 print ''
-print '<wm_append_cluster> Save result to', os.path.join(outdir, output_file)
+print 'Save result to', os.path.join(outdir, output_file)

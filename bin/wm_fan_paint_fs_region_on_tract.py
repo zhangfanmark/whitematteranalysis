@@ -72,8 +72,8 @@ if not os.path.exists(args.outputDirectory):
     os.makedirs(outdir)
 
 if not os.path.exists(args.label_map_file):
-    print "Label map", args.outputDirectory, "does not exist, creating it."
-    os.makedirs(outdir)
+    print "Label map", args.label_map_file, "does not exist."
+    exit()
 
 lb = nibabel.load(args.label_map_file)
 voxel_data = lb.get_data()

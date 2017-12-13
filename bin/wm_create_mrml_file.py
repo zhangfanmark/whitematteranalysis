@@ -36,6 +36,9 @@ input_polydatas = wma.io.list_vtk_files(args.inputDirectory)
 number_of_files = len(input_polydatas)
 print "<quality_control> Found ", number_of_files, "vtk files in input directory:", args.inputDirectory
 
+if number_of_files == 1:
+    number_of_files = number_of_files + 1
+
 # define R, G, B colors
 # hack a colormap. 0..255 values for each
 step = int(100*255.0 / (number_of_files-1))

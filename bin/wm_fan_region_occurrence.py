@@ -25,13 +25,15 @@ parser.add_argument(
 
 args = parser.parse_args()
 
+## THIS IS THE SAME CODE TO THE TRACT PROFILE. ONLY get_along_tract_region WAS MODIFIED TO combine_regions='LR'
+
 def calculate_all_regions(pd_cluster):
     num_fibers = pd_cluster.GetNumberOfLines()
 
     str_occurrence = ''
     if num_fibers > 0:
 
-        along_tract_regions = connectivity_constraints.get_along_tract_region(pd_cluster, combine_regions='GW', verbose=False)
+        along_tract_regions = connectivity_constraints.get_along_tract_region(pd_cluster, combine_regions='LR', verbose=False)
         all_regions_all_fibers = numpy.concatenate(along_tract_regions).astype(int)
 
         unique_regions = numpy.unique(all_regions_all_fibers)
@@ -48,7 +50,6 @@ def calculate_all_regions(pd_cluster):
 
     return str_occurrence
 
-
 ###################################################################
 
 inputdir = os.path.abspath(args.inputDirectory)
@@ -58,7 +59,7 @@ if not os.path.isdir(args.inputDirectory):
 
 print inputdir
 
-stat_file = os.path.join(inputdir, 'Stat_TractProfile.txt')
+stat_file = os.path.join(inputdir, 'Stat_AllRegionOccurrence.txt')
 
 if os.path.exists(stat_file):
     print "\n Already Computed!!! \n"

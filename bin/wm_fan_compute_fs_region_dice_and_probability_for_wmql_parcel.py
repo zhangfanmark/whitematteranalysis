@@ -29,13 +29,12 @@ parser.add_argument(
 
 args = parser.parse_args()
 
-def list_cluster_files(input_dir):
+def list_cluster_file(input_dir, reg):
     # Find input files
-    input_mask = "{0}/*.vtk".format(input_dir)
-    input_mask2 = "{0}/*.vtp".format(input_dir)
-    input_pd_fnames = glob.glob(input_mask) + glob.glob(input_mask2)
-    input_pd_fnames = sorted(input_pd_fnames)
-    return(input_pd_fnames)
+    str_reg = "{0}/*_"+reg+".vtp"
+    input_mask = str_reg.format(input_dir)
+    input_pd_fnames = glob.glob(input_mask)
+    return (input_pd_fnames)
 
 def calculate_region_probability(pd_cluster, region_prob_cluster_atlas, occ_profile='Occ'):
     num_fibers = pd_cluster.GetNumberOfLines()
@@ -88,6 +87,7 @@ def calculate_region_dice(pd_cluster, region_prob_cluster_atlas, thres_ranges, o
             mean_dice = []
             for fiber_regions in along_tract_regions:
                 if (len(fiber_regions) + len(atlas_regions)) > 0:
+
                     mean_dice.append(len(numpy.intersect1d(fiber_regions, atlas_regions)) * 2.0 / (len(fiber_regions) + len(atlas_regions)))
                 else:
                     mean_dice.append(0)
@@ -111,6 +111,7 @@ if not os.path.exists(inputcsv):
     exit()
 else:
     region_prob_atlas_list = []
+    parcels_to_be_analyzed = []
     with open(inputcsv, 'rb') as csvfile:
         spamreader = csv.reader(csvfile, delimiter=',', quotechar='\'')
         first_row = True
@@ -126,8 +127,9 @@ else:
                 region_prob_cluster_atlas[int(region)] = prob
 
             region_prob_atlas_list.append(region_prob_cluster_atlas)
+            parcels_to_be_analyzed.append(row[0])
 
-cluster_paths = list_cluster_files(inputdir)
+# cluster_paths = list_cluster_files(inputdir)
 
 input_file_name = os.path.split(args.inputAtlasFile)[1]
 
@@ -146,14 +148,21 @@ elif occ_profile == 'Profile':
 if not os.path.exists(prob_file):
     outstr_region_prob = 'Cluster Index' + '\t'+ 'Region Probability Atlas' + '\t'+ 'Region Probability Self' + '\n'
 
-    for cluster_path, region_prob_cluster_atlas in zip(cluster_paths, region_prob_atlas_list):
+    for parce_pre, region_prob_cluster_atlas in zip(parcels_to_be_analyzed, region_prob_atlas_list):
 
-        cluster_file_name = os.path.split(cluster_path)[1]
-        print '\n', cluster_file_name
+        cluster_path = list_cluster_file(inputdir, parce_pre)
 
-        pd_cluster = wma.io.read_polydata(cluster_path)
+        if len(cluster_path) > 0:
+            cluster_file_name = os.path.split(cluster_path[0])[1]
+            print '\n', cluster_file_name
 
-        prob_atlas, prob_self = calculate_region_probability(pd_cluster, region_prob_cluster_atlas, occ_profile)
+            pd_cluster = wma.io.read_polydata(cluster_path[0])
+
+            prob_atlas, prob_self = calculate_region_probability(pd_cluster, region_prob_cluster_atlas, occ_profile)
+        else:
+            prob_atlas = 0
+            prob_self = 0
+
         outstr_region_prob = outstr_region_prob + cluster_file_name + '\t' + str(prob_atlas) + '\t' + str(prob_self) + '\n'
 
     output_file = open(prob_file, 'w')
@@ -173,14 +182,19 @@ if not os.path.exists(dice_file):
         outstr_region_dice += '\t' + 'Region Dice : Threshold ' + str(thres) + '%'
     outstr_region_dice += '\n'
 
-    for cluster_path, region_prob_cluster_atlas in zip(cluster_paths, region_prob_atlas_list):
+    for parce_pre, region_prob_cluster_atlas in zip(parcels_to_be_analyzed, region_prob_atlas_list):
 
-        cluster_file_name = os.path.split(cluster_path)[1]
-        print '\n', cluster_file_name
+        cluster_path = list_cluster_file(inputdir, parce_pre)
 
-        pd_cluster = wma.io.read_polydata(cluster_path)
+        if len(cluster_path) > 0:
+            cluster_file_name = os.path.split(cluster_path[0])[1]
+            print '\n', cluster_file_name
 
-        dice_list = calculate_region_dice(pd_cluster, region_prob_cluster_atlas, thres_ranges, occ_profile)
+            pd_cluster = wma.io.read_polydata(cluster_path[0])
+
+            dice_list = calculate_region_dice(pd_cluster, region_prob_cluster_atlas, thres_ranges, occ_profile)
+        else:
+            dice_list = []
 
         outstr_region_dice += cluster_file_name
         for dice in dice_list:
